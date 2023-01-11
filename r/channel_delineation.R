@@ -177,7 +177,30 @@ for (i in 1 : length(stns)) {
   }
 }
 # So some of these transects were null for some reason. Investigate why...
-which(unique())
+geom <- tmp2
+stnG <- unique(geom$stn) # Only two cross sections missing
+miss <- which(!(stns %in% stnG))
+ndes$cDst[miss] # Do worry about either
+# 17625 - because the points are labeled in section 6, but actually lie in 7
+# 20050 - because the transect isn't long enough
+saveRDS(object = list(cross_sections = xsct, 
+                      rasters = rstr, 
+                      nodes = ndes,
+                      geometry = geom),
+        file = paste0(dir5, '/cross_section_data.RData'))
+# Now calculate WD and BI using Keast et al (2022)
+geom <- readRDS(paste0(dir5, '/cross_section_data.RData'))[[4]]
+geom$WD <- geom$wTop / geom$dAvg
+geom$BI <- NA
+i = j = 1
+
+# Something wrong with the data here (when i = 132)
+for (i in 1 : length(stnG)) {
+  cond <- which(geom$stn == stnG[i])
+  temp <- geom[cond, ]
+  for (j in nrow(temp) : 2) {temp$BI[j] <- temp$wTop[j + 1] - temp$wTop[j]}
+  geom$BI[cond] <- temp$BI
+}
 
 
 
