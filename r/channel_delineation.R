@@ -80,7 +80,7 @@ stns <- unique(xsct$cDst)
 cmpt <- c('grnd', 'vege', 'watr')
 # ----
 
-# Plot these up! ----
+# Plot these up! These look pretty good. ----
 # pl <- list()
 # for (i in 1 : length(stns)) {
 #   temp <- xsct[which(xsct$cDst == stns[i]), ]
@@ -115,79 +115,81 @@ cmpt <- c('grnd', 'vege', 'watr')
 #   ggsave(filename = paste0(dir4, name, '.png'), plot = pX, width = 21, 
 #          height = 29.7, units = "cm", dpi = 300)
 # }
-# These look pretty good. Now start the analysis (bankfull identification) ----
+# ----
 
-# Bankfull dimensions ----
-# Calcalate channel dimensions and bankfull elevations ---- 
-cntr <- 1
-for (i in 1 : length(stns)) {
-  temp <- xsct[which(xsct$cDst == stns[i]), ]
-  temp <- temp[complete.cases(temp$grnd), ]
-  if (nrow(temp) != 0) {
-    temp$tDst <- temp$tDst - min(temp$tDst)
-    # Get rid of down slopes on the edges; start at left bank
-    ends <- rep(T, nrow(temp))
-    for (k in 1 : (nrow(temp) - 1)) {
-      if (temp$grnd[k] <= temp$grnd[k + 1]) {
-        ends[k] <- FALSE
-      } else {
-        break 
-      }
-    }
-    for (k in nrow(temp) : 2) {
-      if (temp$grnd[k] <= temp$grnd[k - 1]) {
-        ends[k] <- FALSE
-      } else {
-        break
-      }
-    }
-    temp <- temp[which(ends), ]
-    # Calculate channel geometry at 0.1m increments through the xsct from bottom 
-    # to top. Then calculate WD and BI from these.
-    zRng <- seq(floor(min(temp$grnd) * 10) / 10, ceiling(max(temp$grnd) * 10) / 10,
-                0.1)
-    for (j in 1 : length(zRng)) {
-      if (zRng[j] > min(temp$grnd) & zRng[j] < temp$grnd[1] & zRng[j] < temp$grnd[nrow(temp)]) {
-        # Now calculate the geometry
-        aXsc <- getXsctArea(wse = zRng[j], xsct = temp, colX = 'tDst', colZ = 'grnd')
-        wTop <- getTopWidth(wse = zRng[j], xsct = temp, colX = 'tDst', colZ = 'grnd')
-        dAvg <- aXsc / wTop
-        # Assume max depth is = minimum xsct elevation and wse 
-        dMax <- zRng[j] - min(temp$grnd)
-        tmp1 <- data.frame(stn = stns[i], 
-                           wse = zRng[j], 
-                           aXsc = aXsc, 
-                           wTop = wTop,
-                           dAvg = dAvg, 
-                           dMax = dMax)
-        if (cntr == 1) {
-          tmp2 <- tmp1
-        } else {
-          tmp2 <- rbind(tmp2,
-                        data.frame(stn = stns[i], 
-                                   wse = zRng[j], 
-                                   aXsc = aXsc,
-                                   wTop = wTop, 
-                                   dAvg = dAvg, 
-                                   dMax = dMax))
-        }
-        cntr <- cntr + 1
-      }
-    }
-  }
-}
-# So some of these transects were null for some reason. Investigate why...
+# Channel dimensions ----
+# cntr <- 1
+# for (i in 1 : length(stns)) {
+#   temp <- xsct[which(xsct$cDst == stns[i]), ]
+#   temp <- temp[complete.cases(temp$grnd), ]
+#   if (nrow(temp) != 0) {
+#     temp$tDst <- temp$tDst - min(temp$tDst)
+#     # Get rid of down slopes on the edges; start at left bank
+#     ends <- rep(T, nrow(temp))
+#     for (k in 1 : (nrow(temp) - 1)) {
+#       if (temp$grnd[k] <= temp$grnd[k + 1]) {
+#         ends[k] <- FALSE
+#       } else {
+#         break 
+#       }
+#     }
+#     for (k in nrow(temp) : 2) {
+#       if (temp$grnd[k] <= temp$grnd[k - 1]) {
+#         ends[k] <- FALSE
+#       } else {
+#         break
+#       }
+#     }
+#     temp <- temp[which(ends), ]
+#     # Calculate channel geometry at 0.1m increments through the xsct from bottom 
+#     # to top. Then calculate WD and BI from these.
+#     zRng <- seq(floor(min(temp$grnd) * 10) / 10, ceiling(max(temp$grnd) * 10) / 10,
+#                 0.1)
+#     for (j in 1 : length(zRng)) {
+#       if (zRng[j] > min(temp$grnd) & zRng[j] < temp$grnd[1] & zRng[j] < temp$grnd[nrow(temp)]) {
+#         # Now calculate the geometry
+#         aXsc <- getXsctArea(wse = zRng[j], xsct = temp, colX = 'tDst', colZ = 'grnd')
+#         wTop <- getTopWidth(wse = zRng[j], xsct = temp, colX = 'tDst', colZ = 'grnd')
+#         dAvg <- aXsc / wTop
+#         # Assume max depth is = minimum xsct elevation and wse 
+#         dMax <- zRng[j] - min(temp$grnd)
+#         tmp1 <- data.frame(stn = stns[i], 
+#                            wse = zRng[j], 
+#                            aXsc = aXsc, 
+#                            wTop = wTop,
+#                            dAvg = dAvg, 
+#                            dMax = dMax)
+#         if (cntr == 1) {
+#           tmp2 <- tmp1
+#         } else {
+#           tmp2 <- rbind(tmp2,
+#                         data.frame(stn = stns[i], 
+#                                    wse = zRng[j], 
+#                                    aXsc = aXsc,
+#                                    wTop = wTop, 
+#                                    dAvg = dAvg, 
+#                                    dMax = dMax))
+#         }
+#         cntr <- cntr + 1
+#       }
+#     }
+#   }
+# }
+# # So some of these transects were null for some reason. Investigate why...
 geom <- tmp2
-stnG <- unique(geom$stn) # Only two cross sections missing
-miss <- which(!(stns %in% stnG))
-ndes$cDst[miss] # Do worry about either
-# 17625 - because the points are labeled in section 6, but actually lie in 7
-# 20050 - because the transect isn't long enough
-saveRDS(object = list(cross_sections = xsct, 
-                      rasters = rstr, 
-                      nodes = ndes,
-                      geometry = geom),
-        file = paste0(dir5, '/cross_section_data.RData'))
+# stnG <- unique(geom$stn) # Only two cross sections missing
+# miss <- which(!(stns %in% stnG))
+# ndes$cDst[miss] # Do worry about either
+# # 17625 - because the points are labeled in section 6, but actually lie in 7
+# # 20050 - because the transect isn't long enough
+# saveRDS(object = list(cross_sections = xsct, 
+#                       rasters = rstr, 
+#                       nodes = ndes,
+#                       geometry = geom),
+#         file = paste0(dir5, '/cross_section_data.RData'))
+# ----
+
+# Bankfull indicators ----
 # Now calculate WD and BI using Keast et al (2022)
 geom <- readRDS(paste0(dir5, '/cross_section_data.RData'))[[4]]
 geom$WD <- geom$wTop / geom$dAvg
