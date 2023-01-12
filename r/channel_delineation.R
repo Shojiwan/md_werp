@@ -191,61 +191,123 @@ cmpt <- c('grnd', 'vege', 'watr')
 
 # Bankfull indicators ----
 # Now calculate WD and BI using Keast et al (2022)
-geom <- readRDS(paste0(dir5, '/cross_section_data.RData'))[[4]]
+# geom <- readRDS(paste0(dir5, '/data/cross_section_data_w_BF_indicators.RData'))[[4]]
+# stnG <- unique(geom$stn)
+# geom$WD <- geom$wTop / geom$dAvg
+# geom$BI <- NA
+# for (i in 1 : length(stnG)) {
+#   cond <- which(geom$stn == stnG[i])
+#   temp <- geom[cond, ]
+#   if (nrow(temp) > 1) { # Need to have more than 1 row of X-sect
+#     for (j in nrow(temp) : 2) {
+#       temp$BI[j] <- temp$wTop[j + 1] - temp$wTop[j]
+#     }    
+#   } 
+#   geom$BI[cond] <- temp$BI
+# }
+# geom <- geom[order(geom$stn, geom$wse), ]
+# geom$indx <- 1 : nrow(geom)
+# # Isolate local max BI and min WD for each cross section
+# geom$chbi <- geom$chwd <- NA
+# geom <- geom[, c(9, 1 : 7, 10, 8, 11)]
+# temp$WD <- round(temp$WD, 3); temp$BI <- round(temp$BI, 3)
+# 
+# for (i in 1 : length(stnG)) {
+#   temp <- geom[which(geom$stn == stnG[i]), ]
+#   if (nrow(temp) > 2) { # Need to have more than 2 row of X-sect
+#     # W:D minima - when rwd changes from '-' to '+' moving upward (Q ^)
+#     for (j in 2 : (nrow(temp) - 1)) {
+#       temp$chwd[j] <- ifelse(temp$WD[j] == temp$WD[j - 1], temp$chwd[j - 1],
+#                              ifelse(temp$WD[j] < temp$WD[j - 1], -1, 1))
+#     }
+#     # Go back through and isolate the local W:D mins
+#     for (j in 2 : (nrow(temp) - 1)) {
+#       temp$chwd[j] <- ifelse(temp$chwd[j] == -1 & temp$chwd[j + 1] == 1, 1, 0)
+#     }
+#     # BI maxima  - when bi changes from '+' to '-' moving downward (Q v)
+#     for (j in (nrow(temp) - 1) : 2) {
+#       temp$chbi[j] <- ifelse(temp$BI[j] == temp$BI[j + 1], temp$chbi[j + 1],
+#                              ifelse(temp$BI[j] > temp$BI[j + 1], 1, -1))
+#     }
+#     # Isolate local BI max (at initial inception) from lowest to highest elevation
+#     for (j in (nrow(temp) - 1) : 2) {
+#       temp$chbi[j] <- ifelse(temp$chbi[j] == 1 & temp$chbi[j - 1] == -1, 1, 0)
+#     }
+#     geom$chwd[which(geom$stn == stnG[i])] <- temp$chwd
+#     geom$chbi[which(geom$stn == stnG[i])] <- temp$chbi
+#   }
+# }
+# saveRDS(object = list(cross_sections = xsct,
+#                       rasters = rstr,
+#                       nodes = ndes,
+#                       geometry = geom),
+#         file = paste0(dir5, '/cross_section_data_w_BF_indicators.RData'))
+# ----
+
+# Plot with BF indicator graphs ----
+# Iterate through on groups of 5, replace the figures in the figures folder
+# Don't plot vegetation
+# geom$stnG <- paste0('STN', ifelse(geom$stn < 100, '000',
+#                              ifelse(geom$stn < 1000, '00',
+#                                     ifelse(geom$stn < 10000, '0',''))),
+#                     geom$stn)
+# xsct$stnX <- paste0('STN', ifelse(xsct$cDst < 100, '000',
+#                                   ifelse(xsct$cDst < 1000, '00',
+#                                          ifelse(xsct$cDst < 10000, '0',''))),
+#                     xsct$cDst)
+# stnX <- unique(xsct$stnX)
+# stnG <- unique(geom$stnG)
+# pl <- list()
+# for (i in 1 : length(seetnG)) {
+#   # Three things to plot: xsct, WD and BI graphs
+#   tmpX <- xsct[which(xsct$stnX == stnG[i]), ]
+#   tmpG <- geom[which(geom$stnG == stnG[i]), ]
+#   # Set graph limits
+#   minZ <- floor(min(tmpX$grnd, na.rm = T))
+#   minZ <- ifelse(minZ %% 2 != 0, minZ - 1, minZ)
+#   maxZ <- ceiling(max(tmpX$grnd, na.rm = T))
+#   maxZ <- ifelse(maxZ %% 2 != 0, maxZ + 1, maxZ)
+#   # Print 5 to a sheet (A4)
+#   lblY <- minZ + 0.90 * (maxZ - minZ)
+#   pX <- ggplot(tmpX, aes(x = tDst, y = grnd)) + geom_line(size = 1.5) +
+#         theme_bw() + theme(axis.title.x = element_blank()) +
+#         scale_y_continuous(limits = c(minZ, maxZ)) + ylab('Elevation (m)') +
+#         annotate(geom = 'text', x = 0, y = lblY, size = 5, label = stnG[i])
+#   pW <- ggplot(tmpG, aes(x = wse, y = WD)) + geom_line(size = 1.2) +
+#         coord_flip() + theme_bw() + scale_x_continuous(limits = c(minZ, maxZ)) + 
+#         theme(axis.title = element_blank(), axis.text.y = element_blank())
+#   pB <- ggplot(tmpG, aes(x = wse, y = BI)) + geom_line(size = 1.2) +
+#         coord_flip() + theme_bw() + scale_x_continuous(limits = c(minZ, maxZ)) +
+#         theme(axis.title = element_blank(), axis.text.y = element_blank())
+#   pl[[i]] <- grid.arrange(pX, pW, pB, nrow = 1, widths = c(3, 1, 1))
+#   names(pl)[i] <- stnG[i]
+# }
+# saveRDS(object = list(cross_sections = xsct,
+#                       rasters        = rstr,
+#                       nodes          = ndes,
+#                       geometry       = geom,
+#                       plots          =   pl),
+#         file = paste0(dir5, '/data/cross_section_data_w_BF_indicators.RData'))
+# Okay that file is starting to get big now. Think about dividing it up
+
+geom <- readRDS(paste0(dir5, '/data/cross_section_data_w_BF_indicators.RData'))[[4]]
+pl   <- readRDS(paste0(dir5, '/data/cross_section_data_w_BF_indicators.RData'))[[5]]
 stnG <- unique(geom$stn)
-geom$WD <- geom$wTop / geom$dAvg
-geom$BI <- NA
-for (i in 1 : length(stnG)) {
-  cond <- which(geom$stn == stnG[i])
-  temp <- geom[cond, ]
-  if (nrow(temp) > 1) { # Need to have more than 1 row of X-sect
-    for (j in nrow(temp) : 2) {
-      temp$BI[j] <- temp$wTop[j + 1] - temp$wTop[j]
-    }    
-  } 
-  geom$BI[cond] <- temp$BI
-}
-geom <- geom[order(geom$stn, geom$wse), ]
-geom$indx <- 1 : nrow(geom)
-# Isolate local max BI and min WD for each cross section
-geom$chbi <- geom$chwd <- NA
-geom <- geom[, c(9, 1 : 7, 10, 8, 11)]
-temp$WD <- round(temp$WD, 3); temp$BI <- round(temp$BI, 3)
-
-for (i in 1 : length(stnG)) {
-  temp <- geom[which(geom$stn == stnG[i]), ]
-  if (nrow(temp) > 2) { # Need to have more than 2 row of X-sect
-    # W:D minima - when rwd changes from '-' to '+' moving upward (Q ^)
-    for (j in 2 : (nrow(temp) - 1)) {
-      temp$chwd[j] <- ifelse(temp$WD[j] == temp$WD[j - 1], temp$chwd[j - 1],
-                             ifelse(temp$WD[j] < temp$WD[j - 1], -1, 1))
-    }
-    # Go back through and isolate the local W:D mins
-    for (j in 2 : (nrow(temp) - 1)) {
-      temp$chwd[j] <- ifelse(temp$chwd[j] == -1 & temp$chwd[j + 1] == 1, 1, 0)
-    }
-    # BI maxima  - when bi changes from '+' to '-' moving downward (Q v)
-    for (j in (nrow(temp) - 1) : 2) {
-      temp$chbi[j] <- ifelse(temp$BI[j] == temp$BI[j + 1], temp$chbi[j + 1],
-                             ifelse(temp$BI[j] > temp$BI[j + 1], 1, -1))
-    }
-    # Isolate local BI max (at initial inception) from lowest to highest elevation
-    for (j in (nrow(temp) - 1) : 2) {
-      temp$chbi[j] <- ifelse(temp$chbi[j] == 1 & temp$chbi[j - 1] == -1, 1, 0)
-    }
-    geom$chwd[which(geom$stn == stnG[i])] <- temp$chwd
-    geom$chbi[which(geom$stn == stnG[i])] <- temp$chbi
+npge <- ceiling(length(stnG)/5)
+vctr <- 1 : 5
+for (i in 1 : npge) {
+  indx <- vctr + (i - 1) * 5
+  if (i != npge) {
+    pX <- grid.arrange(pl[[indx[1]]], pl[[indx[2]]], pl[[indx[3]]], pl[[indx[4]]],
+                       pl[[indx[5]]], ncol = 1)    
+  } else {
+    pX <- grid.arrange(pl[[indx[1]]], pl[[indx[2]]], ncol = 1)    
   }
+  name <- paste0(names(pl)[indx[1]], '_', names(pl)[indx[5]])
+  
+  ggsave(filename = paste0(dir4, 'channel_w_indicators/', name, '.png'), 
+         plot = pX, width = 21, height = 29.7, units = "cm", dpi = 300)
 }
-saveRDS(object = list(cross_sections = xsct,
-                      rasters = rstr,
-                      nodes = ndes,
-                      geometry = geom),
-        file = paste0(dir5, '/cross_section_data_w_BF_indicators.RData'))
-
-# Now plot some of these to check
-
-# Should I rank the indicators???
 
 
 
