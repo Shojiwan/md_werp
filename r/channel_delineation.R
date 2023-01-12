@@ -8,6 +8,7 @@ dir1 <- 'F:/003_gis/001_allData/006_elevation/MD/md_werp/gis/'
 dir2 <- 'F:/003_gis/001_allData/006_elevation/MD/point_cloud/culgoa/rstrs'
 dir3 <- 'G:/004_data/002_projData/004_MRY/geomorphology/cross_sections/'
 dir4 <- 'F:/003_gis/001_allData/006_elevation/MD/point_cloud/culgoa/xsct/'
+dir5 <- 'F:/003_gis/001_allData/006_elevation/MD/md_werp'
 source(paste0(dir3, "R/channel_geometry_functions.R"))
 
 # X-section point locations ----
@@ -21,7 +22,7 @@ source(paste0(dir3, "R/channel_geometry_functions.R"))
 # pnts$midN <- pnts$midE <- pnts$tDst <- 0
 # for (i in 2 : nrow(pnts)) { # data define reach between point and previous point
 #   pnts$tDst[i] <- sqrt((pnts$nrth[i] - pnts$nrth[i - 1])^2 +
-#                          (pnts$east[i] - pnts$east[i - 1])^2)
+#                        (pnts$east[i] - pnts$east[i - 1])^2)
 #   # Aspect defines the direction of the line from i - 1 to i; north = 0; east = 90, etc....
 #   east <- pnts$east[i] - pnts$east[i - 1]
 #   nrth <- pnts$nrth[i] - pnts$nrth[i - 1]
@@ -29,8 +30,8 @@ source(paste0(dir3, "R/channel_geometry_functions.R"))
 #   pnts$midE[i] <- mean(c(pnts$east[i], pnts$east[i - 1]))
 #   pnts$midN[i] <- mean(c(pnts$nrth[i], pnts$nrth[i - 1]))
 # }
-# # @ each segment mid-point, take a 70m line perpendicular to the segment aspect
-# trns <- seq(-70, 70, 2)
+# # @ each segment mid-point, take a 200m line perpendicular to the segment aspect
+# trns <- seq(-100, 100, 2)
 # for (i in 2 : nrow(pnts)) {
 #   orth <- orthog(angl = pnts$aspc[i])
 #   # for transect distance (tDst) negative refers to left bank, positive right bank
@@ -49,14 +50,16 @@ source(paste0(dir3, "R/channel_geometry_functions.R"))
 # grps <- unique(xsct$grp)
 # fils <- list.files(path = dir2, pattern = '.asc')
 # fils <- paste0(dir2, '/', fils)
-# rstr <- list(grnd = list(), vege = list(), watr = list())
-# for (i in 1 : 9) {
-#   for (j in 1 : 3) {
-#     rstr[[j]][[i]] <- raster(fils[grep(cmpt[j], fils)][i])
-#   }
-# }
+# rstr <- readRDS(paste0(dir5, '/data/cross_section_data.RData'))[[2]]
+# # rstr <- list(grnd = list(), vege = list(), watr = list())
+# # for (i in 1 : 9) {
+# #   for (j in 1 : 3) {
+# #     rstr[[j]][[i]] <- raster(fils[grep(cmpt[j], fils)][i])
+# #   }
+# # }
 # # Sample elevations at each point in the cross sections
 # xsct$vege <- xsct$watr <- xsct$grnd <- NA
+# cmpt <- c('grnd', 'vege', 'watr')
 # for (i in 1 : length(grps)) {
 #   cond <- which(xsct$grp == i)
 #   temp <- xsct[cond, ]
@@ -70,9 +73,10 @@ source(paste0(dir3, "R/channel_geometry_functions.R"))
 # ----
 
 # Save as interim data ----
-dir5 <- 'F:/003_gis/001_allData/006_elevation/MD/md_werp'
-# saveRDS(object = list(cross_sections = xsct, rasters = rstr, nodes = ndes), 
+# saveRDS(object = list(cross_sections = xsct, rasters = rstr, nodes = ndes),
 #         file = paste0(dir5, '/cross_section_data.RData'))
+# 
+# 
 xsct <- readRDS(paste0(dir5, '/data/cross_section_data.RData'))[[1]]
 rstr <- readRDS(paste0(dir5, '/data/cross_section_data.RData'))[[2]]
 ndes <- readRDS(paste0(dir5, '/data/cross_section_data.RData'))[[3]]
@@ -116,6 +120,11 @@ cmpt <- c('grnd', 'vege', 'watr')
 #          height = 29.7, units = "cm", dpi = 300)
 # }
 # ----
+
+# Reduce cross ----
+# The cross sections need to be reduced to the main channel before analysis
+# This includes identifying water and water surfaces
+
 
 # Channel dimensions ----
 # cntr <- 1
@@ -289,24 +298,82 @@ cmpt <- c('grnd', 'vege', 'watr')
 #                       plots          =   pl),
 #         file = paste0(dir5, '/data/cross_section_data_w_BF_indicators.RData'))
 # Okay that file is starting to get big now. Think about dividing it up
+# geom <- readRDS(paste0(dir5, '/data/cross_section_data_w_BF_indicators.RData'))[[4]]
+# pl   <- readRDS(paste0(dir5, '/data/cross_section_data_w_BF_indicators.RData'))[[5]]
+# stnG <- unique(geom$stn)
+# npge <- ceiling(length(stnG)/5)
+# vctr <- 1 : 5
+# for (i in 1 : npge) {
+#   indx <- vctr + (i - 1) * 5
+#   if (i != npge) {
+#     pX <- grid.arrange(pl[[indx[1]]], pl[[indx[2]]], pl[[indx[3]]], pl[[indx[4]]],
+#                        pl[[indx[5]]], ncol = 1)    
+#   } else {
+#     pX <- grid.arrange(pl[[indx[1]]], pl[[indx[2]]], ncol = 1)    
+#   }
+#   name <- paste0(names(pl)[indx[1]], '_', names(pl)[indx[5]])
+#   
+#   ggsave(filename = paste0(dir4, 'channel_w_indicators/', name, '.png'), 
+#          plot = pX, width = 21, height = 29.7, units = "cm", dpi = 300)
+# }
+# Look okay, but some methods issues that could cause channel misrepresentation. 
+# ----
 
-geom <- readRDS(paste0(dir5, '/data/cross_section_data_w_BF_indicators.RData'))[[4]]
-pl   <- readRDS(paste0(dir5, '/data/cross_section_data_w_BF_indicators.RData'))[[5]]
-stnG <- unique(geom$stn)
-npge <- ceiling(length(stnG)/5)
-vctr <- 1 : 5
-for (i in 1 : npge) {
-  indx <- vctr + (i - 1) * 5
-  if (i != npge) {
-    pX <- grid.arrange(pl[[indx[1]]], pl[[indx[2]]], pl[[indx[3]]], pl[[indx[4]]],
-                       pl[[indx[5]]], ncol = 1)    
-  } else {
-    pX <- grid.arrange(pl[[indx[1]]], pl[[indx[2]]], ncol = 1)    
+# Select BFZ ---- 
+# From graphs, I have develop the following general rules for delineating the 
+# channel boundaries and TW.
+# 1) If max(BI) > 50% X-sect mid elevation, BFZ = max(BI)
+# 2) If max(BI) < 50% X-sect mid elevation, BFZ = min(WD)
+interpX <- function(x1, x2, y1, y2, xI) {
+  yI <- y1 + (y2 - y1) * (xI - x1) / (x2 - x1) 
+  return(yI)
+}
+for (i in 1 : length(stnG)) {
+  tmpW <- geom[which(geom$stn == stnG[i] & geom$chwd %in% c(1, NA)), ]
+  tmpB <- geom[which(geom$stn == stnG[i] & geom$chbi %in% c(1, NA)), ]
+  bkfW <- tmpW$wse[which(tmpW$WD == min(tmpW$WD, na.rm = T))]
+  bkfB <- tmpB$wse[which(tmpB$BI == max(tmpB$BI, na.rm = T))]
+  tmpX <- xsct[which(xsct$cDst == stnG[i]), ]
+  midZ <- mean(c(max(tmpX$grnd, na.rm = T), min(tmpX$grnd, na.rm = T)))
+  if (length(bkfB) != 0 & length(bkfW) != 0) {
+    bkfZ <- ifelse(bkfB > midZ, bkfB, bkfW)
+    tmpX <- tmpX[complete.cases(tmpX$grnd), ]
+    # Isolate the inundated section to the main channel which will be identified
+    # by the inundated section with the greatest water depth
+    indt <- tmpX$grnd - bkfZ
+    dpst <- which(indt == min(indt, na.rm = T))[1] # Sometimes multiple deepest parts
+    # Work out from this to the find the first positive Z vals in either direction
+    abve <- which(indt > 0)
+    ordr <- data.frame(indx = c(abve, dpst), ordr = c(1 : length(abve), -1))
+    ordr <- ordr[order(ordr$indx), ]
+    row.names(ordr) <- 1 : nrow(ordr)
+    midl <- which(ordr$ordr == -1)
+    # So the first above water land is at ordr$indx[midl - 1] & ordr$indx[midl + 1]
+    cnd1 <- length(ordr$indx[midl - 1]) != 0 & length(ordr$indx[midl + 1]) != 0
+    cnd2 <- !is.na(ordr$indx[midl - 1]) & !is.na(ordr$indx[midl + 1])
+    if (cnd1 & cnd2) {
+      tmpX <- tmpX[ordr$indx[midl - 1] : ordr$indx[midl + 1], ]
+      tmpX <- interpBanks(xsct = tmpX, wse = bkfZ, colX = 'tDst', colZ = 'grnd')
+      # Add metadata
+      tmpX$cDst <- stnG[i]; tmpX$stnX <- tmpX$stnX[1]; tmpX$grp <- tmpX$stnX[1]
+      #  Add east/north for each added point
+      NAs <- which(is.na(tmpX$dX))
+      for (j in 1 : length(NAs)) {
+        # In this case, x are the distances (knowns) and y is the coords (unknown)
+        tmpX$dX[NAs[j]] <- interpX(x1 = tmpX$tDst[NAs[j] - 1], 
+                                   x2 = tmpX$tDst[NAs[j] + 1], 
+                                   y1 =   tmpX$dX[NAs[j] - 1], 
+                                   y2 =   tmpX$dX[NAs[j] + 1], 
+                                   xI = tmpX$tDst[NAs[j]])
+        tmpX$dY[NAs[j]] <- interpX(x1 = tmpX$tDst[NAs[j] - 1], 
+                                   x2 = tmpX$tDst[NAs[j] + 1], 
+                                   y1 =   tmpX$dY[NAs[j] - 1], 
+                                   y2 =   tmpX$dY[NAs[j] + 1], 
+                                   xI = tmpX$tDst[NAs[j]])
+      }
+      if (i == 1) {xsc2 <- tmpX} else {xsc2 <- rbind(xsc2, tmpX)}
+    } 
   }
-  name <- paste0(names(pl)[indx[1]], '_', names(pl)[indx[5]])
-  
-  ggsave(filename = paste0(dir4, 'channel_w_indicators/', name, '.png'), 
-         plot = pX, width = 21, height = 29.7, units = "cm", dpi = 300)
 }
 
 
