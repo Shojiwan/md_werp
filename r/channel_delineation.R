@@ -176,14 +176,14 @@ cmpt <- c('grnd', 'vege', 'watr')
 #   }
 # }
 # # So some of these transects were null for some reason. Investigate why...
-geom <- tmp2
+# geom <- tmp2
 # stnG <- unique(geom$stn) # Only two cross sections missing
 # miss <- which(!(stns %in% stnG))
 # ndes$cDst[miss] # Do worry about either
 # # 17625 - because the points are labeled in section 6, but actually lie in 7
 # # 20050 - because the transect isn't long enough
-# saveRDS(object = list(cross_sections = xsct, 
-#                       rasters = rstr, 
+# saveRDS(object = list(cross_sections = xsct,
+#                       rasters = rstr,
 #                       nodes = ndes,
 #                       geometry = geom),
 #         file = paste0(dir5, '/cross_section_data.RData'))
@@ -192,20 +192,60 @@ geom <- tmp2
 # Bankfull indicators ----
 # Now calculate WD and BI using Keast et al (2022)
 geom <- readRDS(paste0(dir5, '/cross_section_data.RData'))[[4]]
+stnG <- unique(geom$stn)
 geom$WD <- geom$wTop / geom$dAvg
 geom$BI <- NA
-i = j = 1
-
-# Something wrong with the data here (when i = 132)
 for (i in 1 : length(stnG)) {
   cond <- which(geom$stn == stnG[i])
   temp <- geom[cond, ]
-  for (j in nrow(temp) : 2) {temp$BI[j] <- temp$wTop[j + 1] - temp$wTop[j]}
+  if (nrow(temp) > 1) { # Need to have more than 1 row of X-sect
+    for (j in nrow(temp) : 2) {
+      temp$BI[j] <- temp$wTop[j + 1] - temp$wTop[j]
+    }    
+  } 
   geom$BI[cond] <- temp$BI
 }
+geom <- geom[order(geom$stn, geom$wse), ]
+geom$indx <- 1 : nrow(geom)
+# Isolate local max BI and min WD for each cross section
+geom$chbi <- geom$chwd <- NA
+geom <- geom[, c(9, 1 : 7, 10, 8, 11)]
+temp$WD <- round(temp$WD, 3); temp$BI <- round(temp$BI, 3)
 
+for (i in 1 : length(stnG)) {
+  temp <- geom[which(geom$stn == stnG[i]), ]
+  if (nrow(temp) > 2) { # Need to have more than 2 row of X-sect
+    # W:D minima - when rwd changes from '-' to '+' moving upward (Q ^)
+    for (j in 2 : (nrow(temp) - 1)) {
+      temp$chwd[j] <- ifelse(temp$WD[j] == temp$WD[j - 1], temp$chwd[j - 1],
+                             ifelse(temp$WD[j] < temp$WD[j - 1], -1, 1))
+    }
+    # Go back through and isolate the local W:D mins
+    for (j in 2 : (nrow(temp) - 1)) {
+      temp$chwd[j] <- ifelse(temp$chwd[j] == -1 & temp$chwd[j + 1] == 1, 1, 0)
+    }
+    # BI maxima  - when bi changes from '+' to '-' moving downward (Q v)
+    for (j in (nrow(temp) - 1) : 2) {
+      temp$chbi[j] <- ifelse(temp$BI[j] == temp$BI[j + 1], temp$chbi[j + 1],
+                             ifelse(temp$BI[j] > temp$BI[j + 1], 1, -1))
+    }
+    # Isolate local BI max (at initial inception) from lowest to highest elevation
+    for (j in (nrow(temp) - 1) : 2) {
+      temp$chbi[j] <- ifelse(temp$chbi[j] == 1 & temp$chbi[j - 1] == -1, 1, 0)
+    }
+    geom$chwd[which(geom$stn == stnG[i])] <- temp$chwd
+    geom$chbi[which(geom$stn == stnG[i])] <- temp$chbi
+  }
+}
+saveRDS(object = list(cross_sections = xsct,
+                      rasters = rstr,
+                      nodes = ndes,
+                      geometry = geom),
+        file = paste0(dir5, '/cross_section_data_w_BF_indicators.RData'))
 
+# Now plot some of these to check
 
+# Should I rank the indicators???
 
 
 
