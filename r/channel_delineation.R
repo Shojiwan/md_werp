@@ -337,14 +337,19 @@ xsct <- readRDS(paste0(dir5, '/data/xsct_trimmed.RData'))
 # ----
 
 # Select BFZ ---- 
+
+
+
 # Use the following general rules for delineating channel boundaries.
 # 1) If max(BI) > 50% X-sect mid elevation, BFZ = max(BI)
 # 2) If max(BI) < 50% X-sect mid elevation, BFZ = min(WD)
+xsct <- readRDS(paste0(dir5, '/data/xsct_trimmed.RData'))
+geom <- readRDS(paste0(dir5, '/data/geom_w_BF.RData'))
 interpX <- function(x1, x2, y1, y2, xI) {
   yI <- y1 + (y2 - y1) * (xI - x1) / (x2 - x1) 
   return(yI)
 }
-for (i in 1009 : length(stnG)) {
+for (i in 1 : length(stnG)) {
   tmpW <- geom[which(geom$stn == stnG[i] & geom$chwd %in% c(1, NA)), ]
   tmpB <- geom[which(geom$stn == stnG[i] & geom$chbi %in% c(1, NA)), ]
   bkfW <- tmpW$wse[which(tmpW$WD == min(tmpW$WD, na.rm = T))]
@@ -396,6 +401,9 @@ for (i in 1009 : length(stnG)) {
   }
 }
 x <- unique(xsc2$stnX) # 2809 records, so it chopped 13 more off, not bad.
+xsc2 <- xsc2[which(xsc2$type %in% c('RB01', 'LB01')), ]
+saveRDS(object = xsc2, file = paste0(dir5, '/data/stream_banks.RData'))
+write.csv(x = xsc2, file = paste0(dir5, '/gis/stream_banks.csv'), row.names = F)
 
 # ----
 
@@ -451,18 +459,8 @@ for (i in 1 : npge) {
   ggsave(filename = paste0(dir4, 'channel_w_BF/', name, '.png'), plot = pX,
          width = 21, height = 29.7, units = "cm", dpi = 300)
 }
-# Still some issues with BF ID. Perhaps try a running average of stream width 
-# and adjust from, say, the BI to the WD based on the variation in the top width
-# from X-section to X-section
 
-
-
-
-
-
-
-
-
-
+# Still some issues with BF ID, but I am going to proceed anyway as is and work
+# the errors out in GIS.
 
 # ----
