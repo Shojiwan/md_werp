@@ -25,3 +25,9 @@ gis/culgoa_oc.prj
 gis/culgoa_oc.shp
 gis/culgoa_oc.shx
 gis/profiles_25m.csv
+*.cpg
+*.dbf
+*.dbf
+*.prj
+*.shp
+*.shx

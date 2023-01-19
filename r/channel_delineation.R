@@ -464,3 +464,8 @@ for (i in 1 : npge) {
 # the errors out in GIS.
 
 # ----
+
+# Delineate thalweg ----
+
+
+
