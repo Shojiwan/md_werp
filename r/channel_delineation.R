@@ -279,7 +279,7 @@ source(paste0(dir3, "R/channel_geometry_functions.R"))
 # ----
 
 # Plot with BF indicator graphs ----
-xsct <- readRDS(paste0(dir5, '/data/xsct_trimmed.RData'))
+# xsct <- readRDS(paste0(dir5, '/data/xsct_trimmed.RData'))
 # geom <- readRDS(paste0(dir5, '/data/geom_w_BF.RData'))
 # # Iterate through on groups of 5, replace the figures in the figures folder
 # # Don't plot vegetation
@@ -337,135 +337,187 @@ xsct <- readRDS(paste0(dir5, '/data/xsct_trimmed.RData'))
 # ----
 
 # Select BFZ ---- 
-
-
-
 # Use the following general rules for delineating channel boundaries.
 # 1) If max(BI) > 50% X-sect mid elevation, BFZ = max(BI)
 # 2) If max(BI) < 50% X-sect mid elevation, BFZ = min(WD)
-xsct <- readRDS(paste0(dir5, '/data/xsct_trimmed.RData'))
-geom <- readRDS(paste0(dir5, '/data/geom_w_BF.RData'))
-interpX <- function(x1, x2, y1, y2, xI) {
-  yI <- y1 + (y2 - y1) * (xI - x1) / (x2 - x1) 
-  return(yI)
-}
-for (i in 1 : length(stnG)) {
-  tmpW <- geom[which(geom$stn == stnG[i] & geom$chwd %in% c(1, NA)), ]
-  tmpB <- geom[which(geom$stn == stnG[i] & geom$chbi %in% c(1, NA)), ]
-  bkfW <- tmpW$wse[which(tmpW$WD == min(tmpW$WD, na.rm = T))]
-  bkfB <- tmpB$wse[which(tmpB$BI == max(tmpB$BI, na.rm = T))]
-  tmpX <- xsct[which(xsct$cDst == stnG[i]), ]
-  midZ <- mean(c(max(tmpX$grnd, na.rm = T), min(tmpX$grnd, na.rm = T)))
-  if (length(bkfB) != 0 & length(bkfW) != 0) {
-    bkfZ <- ifelse(bkfB > midZ, bkfB, bkfW)
-    tmpX <- tmpX[complete.cases(tmpX$grnd), ]
-    # Isolate the inundated section to the main channel which will be identified
-    # by the inundated section with the greatest water depth
-    indt <- tmpX$grnd - bkfZ
-    dpst <- which(indt == min(indt, na.rm = T))[1] # ID multiple deepest parts
-    # Work out from this to the find the first positive Z vals in either direction
-    # Also, if the deepest part is on the end, remove those cross sections
-    if (dpst != 1 & dpst != length(indt)) {
-      abve <- which(indt > 0)
-      ordr <- data.frame(indx = c(abve, dpst), ordr = c(1 : length(abve), -1))
-      ordr <- ordr[order(ordr$indx), ]
-      row.names(ordr) <- 1 : nrow(ordr)
-      midl <- which(ordr$ordr == -1)
-      # So the first above water land is at ordr$indx[midl - 1] -- Left bank & 
-      # ordr$indx[midl + 1] -- Right bank
-      cnd1 <- length(ordr$indx[midl - 1]) != 0 & length(ordr$indx[midl + 1]) != 0
-      cnd2 <- !is.na(ordr$indx[midl - 1]) & !is.na(ordr$indx[midl + 1])
-      if (cnd1 & cnd2) {
-        tmpX <- tmpX[ordr$indx[midl - 1] : ordr$indx[midl + 1], ]
-        tmpX <- interpBanks(xsct = tmpX, wse = bkfZ, colX = 'tDst', colZ = 'grnd')
-        # Add metadata
-        tmpX$cDst <- stnG[i]; tmpX$stnX <- tmpX$stnX[1]; tmpX$grp <- tmpX$stnX[1]
-        #  Add east/north for each added point
-        NAs <- which(is.na(tmpX$dX))
-        for (j in 1 : length(NAs)) {
-          # In this case, x are the distances (knowns) and y is the coords (unknown)
-          tmpX$dX[NAs[j]] <- interpX(x1 = tmpX$tDst[NAs[j] - 1], 
-                                     x2 = tmpX$tDst[NAs[j] + 1], 
-                                     y1 =   tmpX$dX[NAs[j] - 1], 
-                                     y2 =   tmpX$dX[NAs[j] + 1], 
-                                     xI = tmpX$tDst[NAs[j]])
-          tmpX$dY[NAs[j]] <- interpX(x1 = tmpX$tDst[NAs[j] - 1], 
-                                     x2 = tmpX$tDst[NAs[j] + 1], 
-                                     y1 =   tmpX$dY[NAs[j] - 1], 
-                                     y2 =   tmpX$dY[NAs[j] + 1], 
-                                     xI = tmpX$tDst[NAs[j]])
-        }
-        if (i == 1) {xsc2 <- tmpX} else {xsc2 <- rbind(xsc2, tmpX)}
-      } 
-    }
-  }
-}
-x <- unique(xsc2$stnX) # 2809 records, so it chopped 13 more off, not bad.
-xsc2 <- xsc2[which(xsc2$type %in% c('RB01', 'LB01')), ]
-saveRDS(object = xsc2, file = paste0(dir5, '/data/stream_banks.RData'))
-write.csv(x = xsc2, file = paste0(dir5, '/gis/stream_banks.csv'), row.names = F)
-
+# xsct <- readRDS(paste0(dir5, '/data/xsct_trimmed.RData'))
+# geom <- readRDS(paste0(dir5, '/data/geom_w_BF.RData'))
+# interpX <- function(x1, x2, y1, y2, xI) {
+#   yI <- y1 + (y2 - y1) * (xI - x1) / (x2 - x1) 
+#   return(yI)
+# }
+# for (i in 1 : length(stnG)) {
+#   tmpW <- geom[which(geom$stn == stnG[i] & geom$chwd %in% c(1, NA)), ]
+#   tmpB <- geom[which(geom$stn == stnG[i] & geom$chbi %in% c(1, NA)), ]
+#   bkfW <- tmpW$wse[which(tmpW$WD == min(tmpW$WD, na.rm = T))]
+#   bkfB <- tmpB$wse[which(tmpB$BI == max(tmpB$BI, na.rm = T))]
+#   tmpX <- xsct[which(xsct$cDst == stnG[i]), ]
+#   midZ <- mean(c(max(tmpX$grnd, na.rm = T), min(tmpX$grnd, na.rm = T)))
+#   if (length(bkfB) != 0 & length(bkfW) != 0) {
+#     bkfZ <- ifelse(bkfB > midZ, bkfB, bkfW)
+#     tmpX <- tmpX[complete.cases(tmpX$grnd), ]
+#     # Isolate the inundated section to the main channel which will be identified
+#     # by the inundated section with the greatest water depth
+#     indt <- tmpX$grnd - bkfZ
+#     dpst <- which(indt == min(indt, na.rm = T))[1] # ID multiple deepest parts
+#     # Work out from this to the find the first positive Z vals in either direction
+#     # Also, if the deepest part is on the end, remove those cross sections
+#     if (dpst != 1 & dpst != length(indt)) {
+#       abve <- which(indt > 0)
+#       ordr <- data.frame(indx = c(abve, dpst), ordr = c(1 : length(abve), -1))
+#       ordr <- ordr[order(ordr$indx), ]
+#       row.names(ordr) <- 1 : nrow(ordr)
+#       midl <- which(ordr$ordr == -1)
+#       # So the first above water land is at ordr$indx[midl - 1] -- Left bank & 
+#       # ordr$indx[midl + 1] -- Right bank
+#       cnd1 <- length(ordr$indx[midl - 1]) != 0 & length(ordr$indx[midl + 1]) != 0
+#       cnd2 <- !is.na(ordr$indx[midl - 1]) & !is.na(ordr$indx[midl + 1])
+#       if (cnd1 & cnd2) {
+#         tmpX <- tmpX[ordr$indx[midl - 1] : ordr$indx[midl + 1], ]
+#         tmpX <- interpBanks(xsct = tmpX, wse = bkfZ, colX = 'tDst', colZ = 'grnd')
+#         # Add metadata
+#         tmpX$cDst <- stnG[i]; tmpX$stnX <- tmpX$stnX[1]; tmpX$grp <- tmpX$stnX[1]
+#         #  Add east/north for each added point
+#         NAs <- which(is.na(tmpX$dX))
+#         for (j in 1 : length(NAs)) {
+#           # In this case, x are the distances (knowns) and y is the coords (unknown)
+#           tmpX$dX[NAs[j]] <- interpX(x1 = tmpX$tDst[NAs[j] - 1], 
+#                                      x2 = tmpX$tDst[NAs[j] + 1], 
+#                                      y1 =   tmpX$dX[NAs[j] - 1], 
+#                                      y2 =   tmpX$dX[NAs[j] + 1], 
+#                                      xI = tmpX$tDst[NAs[j]])
+#           tmpX$dY[NAs[j]] <- interpX(x1 = tmpX$tDst[NAs[j] - 1], 
+#                                      x2 = tmpX$tDst[NAs[j] + 1], 
+#                                      y1 =   tmpX$dY[NAs[j] - 1], 
+#                                      y2 =   tmpX$dY[NAs[j] + 1], 
+#                                      xI = tmpX$tDst[NAs[j]])
+#         }
+#         if (i == 1) {xsc2 <- tmpX} else {xsc2 <- rbind(xsc2, tmpX)}
+#       } 
+#     }
+#   }
+# }
+# x <- unique(xsc2$stnX) # 2809 records, so it chopped 13 more off, not bad.
+# xsc2 <- xsc2[which(xsc2$type %in% c('RB01', 'LB01')), ]
+# saveRDS(object = xsc2, file = paste0(dir5, '/data/stream_banks.RData'))
+# write.csv(x = xsc2, file = paste0(dir5, '/gis/stream_banks.csv'), row.names = F)
 # ----
 
 # Plot ----
 # Use the original cross sections
-xsct <- readRDS(paste0(dir5, '/data/xsct_full.RData'))
-pl <- list()
-stns <- unique(xsc2$cDst)
-for (i in 1 : length(stns)) {
-  tmp1 <- xsct[which(xsct$cDst == stns[i]), ]
-  tmp2 <- xsc2[which(xsc2$cDst == stns[i]), ]
-  tmp2 <- tmp2[which(tmp2$type != 'GRND'), ]
-  # Print 5 to a sheet (A4)
-  tmp1 <- melt(data = tmp1[, c(2, 6 : 8)], id.var = 'tDst', value.name = 'z',
-               variable.name = 'layr')
-  prfx <- ifelse(stns[i] < 100, '000',
-                 ifelse(stns[i] < 1000, '00',
-                        ifelse(stns[i] < 10000, '0','')))
-  lblY <- min(tmp1$z, na.rm = T) + 0.9 * (max(tmp1$z, na.rm = T) - 
-                                          min(tmp1$z, na.rm = T))
-  pl[[i]] <- ggplot() + 
-             geom_line(data = tmp1, aes(x = tDst, y = z, color = layr), 
-                       size = 1.5) +
-             geom_line(data = tmp2, aes(x = tDst, y = grnd), color = 'black', 
-                       size = 1.5) +
-             scale_color_manual(values = c("brown", "darkgreen", "darkblue"),
-                                labels = c("Ground", "Vegetation", "Water")) +
-             theme_bw() + theme(axis.title = element_blank(),
-                                legend.position = 'none') +
-             annotate(geom = 'text', x = 0, y = lblY, size = 5,
-                      label = paste0('STN', prfx, stns[i]))
-  names(pl)[i] <- paste0('STN', prfx, stns[i])
-}
-npge <- ceiling(length(stns)/5)
-vctr <- 1 : 5
-for (i in 1 : npge) {
-  indx <- vctr + (i - 1) * 5
-  if (i != npge) {
-    pX <- grid.arrange(pl[[indx[1]]],
-                       pl[[indx[2]]],
-                       pl[[indx[3]]],
-                       pl[[indx[4]]],
-                       pl[[indx[5]]],
-                       ncol = 1)
-  } else {
-    pX <- grid.arrange(pl[[indx[1]]],
-                       pl[[indx[2]]],
-                       pl[[indx[3]]],
-                       pl[[indx[4]]],
-                       ncol = 1)
-  }
-  name <- paste0(names(pl)[indx[1]], '_', names(pl)[indx[5]])
-  ggsave(filename = paste0(dir4, 'channel_w_BF/', name, '.png'), plot = pX,
-         width = 21, height = 29.7, units = "cm", dpi = 300)
-}
-
+# xsct <- readRDS(paste0(dir5, '/data/xsct_full.RData'))
+# pl <- list()
+# stns <- unique(xsc2$cDst)
+# for (i in 1 : length(stns)) {
+#   tmp1 <- xsct[which(xsct$cDst == stns[i]), ]
+#   tmp2 <- xsc2[which(xsc2$cDst == stns[i]), ]
+#   tmp2 <- tmp2[which(tmp2$type != 'GRND'), ]
+#   # Print 5 to a sheet (A4)
+#   tmp1 <- melt(data = tmp1[, c(2, 6 : 8)], id.var = 'tDst', value.name = 'z',
+#                variable.name = 'layr')
+#   prfx <- ifelse(stns[i] < 100, '000',
+#                  ifelse(stns[i] < 1000, '00',
+#                         ifelse(stns[i] < 10000, '0','')))
+#   lblY <- min(tmp1$z, na.rm = T) + 0.9 * (max(tmp1$z, na.rm = T) - 
+#                                           min(tmp1$z, na.rm = T))
+#   pl[[i]] <- ggplot() + 
+#              geom_line(data = tmp1, aes(x = tDst, y = z, color = layr), 
+#                        size = 1.5) +
+#              geom_line(data = tmp2, aes(x = tDst, y = grnd), color = 'black', 
+#                        size = 1.5) +
+#              scale_color_manual(values = c("brown", "darkgreen", "darkblue"),
+#                                 labels = c("Ground", "Vegetation", "Water")) +
+#              theme_bw() + theme(axis.title = element_blank(),
+#                                 legend.position = 'none') +
+#              annotate(geom = 'text', x = 0, y = lblY, size = 5,
+#                       label = paste0('STN', prfx, stns[i]))
+#   names(pl)[i] <- paste0('STN', prfx, stns[i])
+# }
+# npge <- ceiling(length(stns)/5)
+# vctr <- 1 : 5
+# for (i in 1 : npge) {
+#   indx <- vctr + (i - 1) * 5
+#   if (i != npge) {
+#     pX <- grid.arrange(pl[[indx[1]]],
+#                        pl[[indx[2]]],
+#                        pl[[indx[3]]],
+#                        pl[[indx[4]]],
+#                        pl[[indx[5]]],
+#                        ncol = 1)
+#   } else {
+#     pX <- grid.arrange(pl[[indx[1]]],
+#                        pl[[indx[2]]],
+#                        pl[[indx[3]]],
+#                        pl[[indx[4]]],
+#                        ncol = 1)
+#   }
+#   name <- paste0(names(pl)[indx[1]], '_', names(pl)[indx[5]])
+#   ggsave(filename = paste0(dir4, 'channel_w_BF/', name, '.png'), plot = pX,
+#          width = 21, height = 29.7, units = "cm", dpi = 300)
+# }
+# 
 # Still some issues with BF ID, but I am going to proceed anyway as is and work
 # the errors out in GIS.
-
 # ----
 
 # Delineate thalweg ----
+# (1) Find low point in the xsect 
+# (2) If on the ends, ignore that xsect
+# (3) If multiple points equal minimum take the median position of those points
+# (3) If no gap at low point, then take the low point as TW
+# (4) If gap then take the center of that low point
+xsct <- readRDS(paste0(dir5, '/data/xsct_trimmed.RData'))
+stns <- unique(xsct$stnX)
+i = which(stns == 'STN11725')
+for (i in 1 : length(stns)) {
+  tmpX <- xsct[which(xsct$stnX == stns[i]), ]
+  tmpN <- tmpX[complete.cases(tmpX$grnd), ]
+  minX <- tmpN[which(tmpN$grnd == min(tmpN$grnd, na.rm = T)), ]
+  
+  if (nrow(minX) > 1) {
+    if (nrow(minX) %% 2 == 0) { # Even # of points: mean location of middle 2 points
+      midl <- c(nrow(minX) / 2, nrow(minX) / 2 + 1)
+      minX <- minX[midl, ]
+      minX <- data.frame(cDst = minX$cDst[1], tDst = mean(minX$tDst, na.rm = T), 
+                         dX = mean(minX$dX, na.rm = T), 
+                         dY = mean(minX$dY, na.rm = T), 
+                         grp = minX$grp[1], grnd = min(minX$grnd, na.rm = T),
+                         vege = NA, watr = NA, stnX = minX$stnX[1], indx = NA)
+    } else { # Odd number of points: location based on location of middle point
+      minX <- minX[median(1 : nrow(minX)), ]
+    }
+  } else {
+    minI <- which(tmpN$grnd == minX$grnd)
+    # Check min at ends; true only if both are true
+    if (minI != 1 & minI != nrow(tmpX)) {
+      # Resample low point from whole xsct - if min is low point with no gaps
+      minX <- tmpX[which(tmpX$grnd == min(tmpX$grnd, na.rm = T)), ]
+      minI <- which(tmpX$grnd == minX$grnd)
+      a <- is.na(tmpX$grnd[minI - 1])
+      b <- is.na(tmpX$grnd[minI + 1])
+      # Find middle of gap NAs
+      tmpN <- which(!is.na(tmpX$grnd))
+      if (a & !b) { # gap is to river left
+        nxtI <- max(tmpN[which(tmpN < minI)])
+        rnge <- tmpX[c(nxtI, minI), ]  
+        minX <- rnge[1, ]
+        minX[, c(2, 3, 4, 6)] <- c(mean(rnge$tDst, na.rm = T), 
+                                   mean(rnge$dX, na.rm = T), 
+                                   mean(rnge$dY, na.rm = T),
+                                   min(rnge$grnd, na.rm = T))
+      } else if (!a & b) { # gap is to river right
+        nxtI <- min(tmpN[which(tmpN > minI)])
+        rnge <- tmpX[c(minI, nxtI), ]  
+        minX <- rnge[1, ]
+        minX[, c(2, 3, 4, 6)] <- c(mean(rnge$tDst, na.rm = T), 
+                                   mean(rnge$dX, na.rm = T), 
+                                   mean(rnge$dY, na.rm = T),
+                                   min(rnge$grnd, na.rm = T))
+      }
+    } 
+  }
+  if (i == 1) {thwg <- minX} else {thwg <- rbind(thwg, minX)}
+}
+write.csv(x = thwg, file = paste0(dir5, '/gis/thalweg.csv'), row.names = F)
 
-
-
+# ----
