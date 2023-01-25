@@ -31,3 +31,4 @@ gis/profiles_25m.csv
 *.prj
 *.shp
 *.shx
+r/.Rhistory
