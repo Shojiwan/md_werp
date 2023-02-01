@@ -1,7 +1,9 @@
-library(ggplot2); library(reshape2)
+library(ggplot2); library(reshape2); library(grid); library(gridExtra)
 rm(list = ls()); cat("\014")
+# dir3 <- 'C:/Users/s5281039'
 dir3 <- 'F:/003_gis/001_allData/006_elevation/MD/md_werp/data'
 # dir3 <- 'D:/003_gis/001_allData/006_elevation/MD/md_werp/data'
+dir4 <- 'F:/003_gis/001_allData/006_elevation/MD/point_cloud/culgoa/xsct/'
 xsct <- readRDS(paste0(dir3, '/xsct_trimmed.RData'))
 bnks <- readRDS(paste0(dir3, '/stream_banks.RData'))
 # FUNCTIONS ----
@@ -84,7 +86,6 @@ for (i in 1 : length(stns)) {
 # ----
 
 # Create interval relationships ----
-# NEED TO RE-EXAMINE
 stnG <- unique(xscG$stnG)
 bins <- unique(xscG$prct)
 for (i in 2 : (length(bins) - 2)) {
@@ -113,78 +114,116 @@ for (i in 2 : (length(bins) - 2)) {
 # For each xsct, select the depth that minimizes error of overall predictions
 
 # Find maximum top width
-dBkf <- seq(0.1, 15, 0.1)
+dBkf <- seq(0, 10, 0.1)
 
 # Will need to interpolate precentages of top width and BF depth 
 stns <- unique(xsct$stnX) # 2828 total cross sections
-i = which(stns == 'STN01275')
+pl <- list()
+# i = which(stns == 'STN01275')
 # i = which(stns == 'STN03450')
-for (i in 1 : stns) {
+# i = which(stns == 'STN64175')
+for (i in 145 : length(stns)) {
   tmpX <- xsct[which(xsct$stnX == stns[i]), ]
   iLB  <- which(tmpX$type == 'LB01'); iRB  <- which(tmpX$type == 'RB01')
   # Trim to bankfull dimensions and reposition LB to 0
-  tmpX <- tmpX[iLB : iRB, ]
-  tmpX$tDst <- tmpX$tDst - min(tmpX$tDst)
-  # Need to deal with dulplicate distances at the ends
-  if (tmpX$tDst[1] == tmpX$tDst[2]) {
-    tmpX <- tmpX[-2, ]
-  }
-  if (tmpX$tDst[nrow(tmpX) - 1] == tmpX$tDst[nrow(tmpX)]) {
-    tmpX <- tmpX[-(nrow(tmpX) - 1), ]
-  }
-  # Top width and bankfull depth
-  wTop <- tmpX$tDst[nrow(tmpX)] - tmpX$tDst[1]
-
-  # 1) Full cross section
-  dMin <- max(tmpX$grnd, na.rm = T) - min(tmpX$grnd, na.rm = T)
-  tmpD <- dBkf # [which(dBkf > dMin)]
-  j = 1
-  for (j in 1 : length(tmpD)) {
-    tmpG <- regularXS(tmpX = tmpX, nDiv = 50, xCol = 'tDst', zCol = 'grnd', 
-                      dBkf = tmpD[j])
-    tmpG$d2   <- NA
-    indx <- c(1 : 2, nrow(tmpG) - 1, nrow(tmpG))
-    tmpG$d2[indx] <- tmpG$dInt[indx]
-    for (k in 1 : nrow(regr)) { # Generate the depth percentages
-      tmpG$d2[k + 2] <- regr$slpe[k] * tmpG$d2[k + 1] + regr$intc[k]
+  if (any(tmpX$type == 'LB01')) {
+    tmpX <- tmpX[iLB : iRB, ]
+    tmpX$tDst <- tmpX$tDst - min(tmpX$tDst)
+    # Need to deal with dulplicate distances at the ends
+    if (tmpX$tDst[1] == tmpX$tDst[2]) {
+      tmpX <- tmpX[-2, ]
     }
-    tmpG$z2 <- tmpG$zInt[1] - tmpD[j] * tmpG$d2
-    # Calculate standard error of residuals
+    if (tmpX$tDst[nrow(tmpX) - 1] == tmpX$tDst[nrow(tmpX)]) {
+      tmpX <- tmpX[-(nrow(tmpX) - 1), ]
+    }
+    # Top width and bankfull depth
+    wTop <- tmpX$tDst[nrow(tmpX)] - tmpX$tDst[1]
     
-    ggplot(tmpG, aes(x = wInt)) + geom_line(aes(y = zInt)) + geom_point(aes(y = z2))
-    tmpE <- tmpG[-indx, ]
-    tmpE$resd <- tmpE$zInt - tmpE$z2
-    tmpE <- tmpE[complete.cases(tmpE$resd), ]
-    err1 <- sqrt(sum(tmpE$resd^2) / (nrow(tmpE) - 2))
-    tmp1 <- data.frame(stnG = stns[i], dpth = tmpD[j], eFul = err1)
-    if (j == 1) {tmp2 <- tmp1} else {tmp2 <- rbind(tmp2, tmp1)}
-  }
-
-  plot(tmp2$eFul ~ tmp2$dpth)
-  
-  tmp2 <- tmp2[order(tmp2$eFul), ]; tmp2 <- tmp2[1, ]
-  tmpG <- regularXS(tmpX = tmpX, nDiv = 50, xCol = 'tDst', zCol = 'grnd', 
-                    dBkf = tmp2$dpth)
-  tmpG$stnG <- stns[i]
-  tmpG$d2   <- NA; indx <- c(1 : 2, nrow(tmpG) - 1, nrow(tmpG))
-  tmpG$d2[indx] <- tmpG$dInt[indx]
-  for (k in 1 : nrow(regr)) { # Generate the next depth percentage
-    tmpG$d2[k + 2] <- regr$slpe[k] * tmpG$d2[k + 1] + regr$intc[k]
-  }
-  tmpG$z2 <- tmpG$zInt[1] - tmpD[j] * tmpG$d2
-  ggplot() + geom_line(data = tmpX, aes(x = tDst, y = grnd), color = 'red') + 
-    geom_line(data = tmpG, aes(x = wInt, y = z2), color = 'blue')
-  
-  
-  # 2) Gap-filled cross section
-  
-  
-  
+    dMin <- max(tmpX$grnd, na.rm = T) - min(tmpX$grnd, na.rm = T)
+    tmpD <- dBkf[which(dBkf > dMin)]
+    for (j in 1 : length(tmpD)) {
+      tmpG <- regularXS(tmpX = tmpX, nDiv = 50, xCol = 'tDst', zCol = 'grnd', 
+                        dBkf = tmpD[j])
+      tmpG$d3 <- tmpG$d2 <- NA
+      ndx1 <- c(1, 2, nrow(tmpG) - 1, nrow(tmpG))
+      tmpG$d2[ndx1] <- tmpG$d3[ndx1] <- tmpG$dInt[ndx1]
+      for (k in 1 : nrow(regr)) { # Generate the depth percentages
+        # 1) Full cross section
+        tmpG$d2[k + 2] <- regr$slpe[k] * tmpG$d2[k + 1] + regr$intc[k]
+        # 2) Gap-filled cross section
+        if (!is.na(tmpG$dInt[k + 2])) { # Use the actual depth 
+          tmpG$d3[k + 2] <- tmpG$dInt[k + 2]
+        } else { # Use previous d3
+          tmpG$d3[k + 2] <- regr$slpe[k] * tmpG$d3[k + 1] + regr$intc[k]
+        }
+      }
+      # Calculate elevations
+      tmpG$z2 <- tmpG$zInt[1] - tmpD[j] * tmpG$d2
+      tmpG$z3 <- tmpG$zInt[1] - tmpD[j] * tmpG$d3
+      # Calculate standard error of residuals for the whole xsct replacement
+      tmpE <- tmpG[-ndx1, ]
+      tmpE$resd <- tmpE$zInt - tmpE$z2
+      tmpE <- tmpE[complete.cases(tmpE$resd), ]
+      err1 <- sqrt(sum(tmpE$resd^2) / (nrow(tmpE) - 2))
+      tmp1 <- data.frame(stnG = stns[i], dpth = tmpD[j], eFul = err1)
+      if (j == 1) {
+        tmp2 <- tmp1; tmp3 <- tmpG[, 1 : 8]; tmp4 <- tmpG[c(1 : 7, 9)]
+      } else {
+        tmp2 <- rbind(tmp2, tmp1)
+        tmp3 <- cbind(tmp3, tmpG$z2)
+        tmp4 <- cbind(tmp4, tmpG$z3)
+      }
+      names(tmp3)[j + 7] <- paste0('z2_', tmpD[j])
+      names(tmp4)[j + 7] <- paste0('z3_', tmpD[j])
+    }
+    
+    tmp2 <- tmp2[order(tmp2$eFul), ]; tmp2 <- tmp2$dpth[1]
+    tmpG <- cbind(tmp3[, c(1 : 7, which(names(tmp3) == paste0('z2_', tmp2)))],
+                  tmp4[, which(names(tmp4) == paste0('z3_', tmp2))])
+    names(tmpG)[8 : 9] <- c('z2', 'z3')
+    tmpG$indx <- 1 : nrow(tmpG)
+    tmpG$stnG <- stns[i]
+    pl[[i]] <- ggplot(data = tmpG, aes(x = wInt)) +
+      geom_line(aes(y = zInt), color = 'black', size = 1.5) +
+      geom_line(aes(y = z2), color = 'darkred') +
+      geom_line(aes(y = z3), color = 'darkgreen') +
+      geom_point(aes(y = z3), color = 'darkgreen', size = 1.4) +
+      theme_bw() + xlab('Distance (m)') + 
+      ylab('Elevation MSL (m)')
+    if (i == 1) {tmpB <- tmpG} else {tmpB <- rbind(tmpB, tmpG)}
+  }  
 }
+saveRDS(object = tmpB, file = paste0(dir3, '/xsct_rglz_filled.RData'))
+
+# 2809 records - 19 didn't work remove from figures
+miss <- which(!(stns %in% unique(tmpB$stnG)))
+pl[miss] <- NULL
+names(pl) <- unique(tmpB$stnG)
 
 # ----
 
-
+# Plot these up! These look pretty good. ----
+npge <- ceiling(length(unique(tmpB$stnG))/5)
+vctr <- 1 : 5
+for (i in 1 : npge) {
+  indx <- vctr + (i - 1) * 5
+  if (i != npge) {
+    pX <- grid.arrange(pl[[indx[1]]],
+                       pl[[indx[2]]],
+                       pl[[indx[3]]],
+                       pl[[indx[4]]],
+                       pl[[indx[5]]],
+                       ncol = 1)
+  } else {
+    pX <- grid.arrange(pl[[indx[1]]],
+                       pl[[indx[2]]],
+                       ncol = 1)
+  }
+  name <- paste0(names(pl)[indx[1]], '_', names(pl)[indx[5]])
+  ggsave(filename = paste0(dir4, 'channel_gapfilled/', name, '.png'), plot = pX,
+         width = 21, height = 29.7, units = "cm", dpi = 300)
+}
+# ----
 
 
 
