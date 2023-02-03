@@ -32,3 +32,5 @@ gis/profiles_25m.csv
 *.shp
 *.shx
 r/.Rhistory
+data/fill_regressions.RData
+r/scratch.R
