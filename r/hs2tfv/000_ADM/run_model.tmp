@@ -1,0 +1,22 @@
+@ ECHO off
+
+Rscript 003_R\001_adjust_landcodes.R
+
+Rscript 003_R\002_create_hs_batch.R
+
+call    001_HS\run_heatsource.bat
+
+Rscript 003_R\003_create_swr.R
+
+Rscript 003_R\004_create_wind.R
+
+Rscript 003_R\005_create_loss.R
+
+Rscript 003_R\006_create_fvsed.R
+
+Rscript 003_R\007_create_fvc.R
+
+TUFLOWFV
+
+Rscript 003_R\008_Process_fv_out.R
+

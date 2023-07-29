@@ -1,0 +1,11 @@
+del run_model.bat
+del 001_HS\run_heatsource.bat
+del 003_R\001_adjust_landcodes.R
+del 003_R\002_create_hs_batch.R
+del 003_R\003_create_swr.R
+del 003_R\004_create_wind.R
+del 003_R\005_create_loss.R
+del 003_R\006_create_fvsed.R
+del 003_R\007_create_fvc.R
+del 003_R\008_Process_fv_out.R
+del "001_HS\in\hs_in_lccodes.csv"

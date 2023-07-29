@@ -1,0 +1,30 @@
+model_run_name  == culgoa_013
+! Model component switches:
+run_heatsource  == 1
+create_wind_bc  == 0
+create_loss_bc  == 0
+create_fvsed    == 0
+create_fvc      == 0
+run_tfv         == 0
+process_results == 0
+!Dates must be in format of YYYY-MM-DD
+start_date      == 2019-05-01
+end_date        == 2019-09-01
+! Model parameters 1
+veg_dens_adj    == 10.00
+wind_red_fact_1 == 1.000
+wind_red_fact_2 == 1.000
+wind_red_fact_3 == 1.000
+wind_red_fact_4 == 1.000
+infiltration    == 0.001
+settling_rate   == 0.001
+erosion_par1    == 0.100
+erosion_par2    == 10.00
+mannings_1      == 0.020
+mannings_2      == 0.060
+swr_ext_coeff_1 == 1.000
+swr_ext_coeff_2 == 0.250
+swr_ext_coeff_3 == 1.000
+swr_ext_coeff_4 == 2.500      
+
+

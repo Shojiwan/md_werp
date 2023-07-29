@@ -1,0 +1,74 @@
+!_________________________________________________________________ 
+! SIMULATION CONFIGURATION
+Bottom drag Model == Manning
+Include Salinity == 1,1    ! salinity model coupled w/ density
+Include Temperature == 1,1 ! temperature model coupled w/ density
+Include Heat == 1          ! heat flux model with surface
+Include Sediment == 1,1    ! sediment and bed load model w/ density
+Include wind == 1          ! wind stress model
+Spatial Order == 1, 1      ! 
+
+GIS FORMAT == SHP
+SHP Projection == ..\model\gis\projection.prj
+write check files == ..\check\
+Hardware == GPU
+!_________________________________________________________________ 
+! TIME COMMANDS
+Time Format == Isodate
+Start Time == 01/05/2019 00:00
+End Time == 01/09/2019 00:00
+CFL == 0.9
+Timestep Limits == 0.01,30.
+!_________________________________________________________________
+! MODEL PARAMETERS
+stability limits == 200., 1000.
+momentum mixing model == Smagorinsky
+global horizontal eddy viscosity == 0.5
+global horizontal eddy viscosity limits == 0.05, 99999.
+!_________________________________________________________________ 
+!Geometry Commands
+Geometry 2D == ..\model\geo\culgoa_013.2dm
+!_________________________________________________________________ 
+!MATERIAL PROPERTIES
+material == 1 ! Channel
+  bottom roughness == 0.040
+end material
+material == 2 ! Overbanks
+  bottom roughness == 0.050
+end material
+!_________________________________________________________________ 
+! MODULES
+! Sediment Transport
+sediment control file == ..\stm\culgoa_013_ST.fvsed
+shortwave radiation sediment extinction coefficients == 1.0, 0.25, 1.0, 2.5
+!_________________________________________________________________
+! INITIAL CONDITIONS
+Initial Water Level == 132.78477 
+Initial Salinity == 0.15 
+Initial Temperature == 10
+Initial Sediment concentration == 20.0
+!_________________________________________________________________ 
+!Boundary Conditions
+bc == Q, 1, ..\bc_dbase\culgoa_013_US_wq.csv
+  bc header == date,flow_m3s-1,sal_ppt,temp_degC,FineSed_mgL-1,DO,Si,Amm,nox,frp,frpads,doc,poc,don,pon,dop,pop,rdoc,rdon,rdop,rpom,green
+end bc
+
+bc == WL, 2, ..\bc_dbase\culgoa_013_DS_WL.csv
+  bc header == date,WL
+end bc
+
+!MET 
+include == ..\bc_dbase\met\culgoa_013_met.fvc
+!________________________________________________________________ 
+!Output Commands
+Output Dir == ..\results\
+Output == points
+  Output points file == ..\results\data_points.csv ! Points file
+  Output parameters == H,D,V,TSS,SAL,TEMP,SW_RAD,W10,
+  Output interval == 3600.
+End output
+
+Output == flux
+	Output interval == 3600.
+End output
+
