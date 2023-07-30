@@ -35,4 +35,3 @@ write_scripts <- function(path) {
   }
 }
 
-
