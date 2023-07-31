@@ -1,0 +1,390 @@
+# MD-WERP 9.2 Water Quality Modelling; Tuflow FV WQ 
+# Ryan Shojinaga & David Hamilton, Australian Rivers Institute, Griffith Uni.
+# ryan.shojinaga@griffithuni.edu.au
+
+# Script reads in solar outputs from Heatsource and creates a netcdf file for
+# Tuflow FV. These are the Heatsource outputs:
+# SR1 is the solar above veg and topography (atmospheric obstruction only)
+# SR4 is the solar at the surface of the water (but not in the water)
+# These will be used to create effective solar percentage reaching the water
+# surface, which will then be applied to a BOM solar timeseries. 
+
+library(ggplot2); library(reshape2); library(lubridate); library(raster)
+library(oce); library(ncdf4)
+remove(list = ls()); cat("\014")
+# Path to model folder and source functions
+# path         <- XX_PATH_XX
+# path       <- 'D:/Backup/005_model/008_MD/03_models/002_tuflow/culgoa_013_hcal/'
+path <- 'C:/001_MD_WERP/002_R/md_werp/r/hs2tfv/'
+source(paste0(path, '/003_R/999_model_functions.R'))
+# READ IN DATA, FILES AND INFORMATION ----
+control_file <- readLines(paste0(path, 'culgoa_cf.mst'))
+model_months <- month(clean_input(control_file[grep('start_date', 
+                                                    control_file)])) : 
+                month(clean_input(control_file[grep('end_date', 
+                                                    control_file)]))       
+path_hs_out  <- paste0(path, '001_HS/out/')
+hs_output    <- list(SR1 = list.files(path_hs_out, pattern = 'SR1'),
+                     SR4 = list.files(path_hs_out, pattern = 'SR4'))
+
+# All other data -- includes model mesh, stream nodes, solar data (HS and BOM)
+data <- readRDS(paste0(path, '004_DATA/supporting_data.RData'))
+
+# READ IN SOLAR ----
+
+i = 1
+
+for (i in 1 : length(model_months)) {
+  SR1 <- read.csv(paste0(path_hs_out, hs_output[['SR1']][i]), skip = 6)[1 : 2]
+  SR4 <- read.csv(paste0(path_hs_out, hs_output[['SR4']][i]), skip = 6)
+  names(SR1) <- c('date', 'SR1_all')
+  names(SR4) <- gsub('X', 'SR4_', names(SR4))
+  solar_rad <- cbind(SR1, SR4[2 : length(SR4)])
+  solar_rad$date <- round_date(
+    as.POSIXct(solar_rad$date * 86400, origin = orig, 
+               tz = 'Australia/Brisbane') - days(2), 'hour'
+  )
+  new_time <- data.frame(date = solar_rad$date, hour = hour(solar_rad$date),
+                         jday = yday(solar_rad$date))
+  # Fix dates (flip seasons); July 1 = Jan 1; Model is based on N. Hemishpere
+  # Also this is off by 4 hours for some reasons. Add these 4 hours to bottom
+  add_4_hours <- solar_rad[1 : 4, ]
+  add_4_hours[, 2 : length(add_4_hours)] <- 0
+  solar_rad <- rbind(solar_rad[c(5 : nrow(solar_rad)), ], add_4_hours)
+  solar_rad$date <- new_time$date
+  new_time <- merge(new_time, jday[, c(1, 3)], by.x = 'jday', by.y = 'jday',
+                    all.x = T, all.y = F)
+  # Add hours as daily fractional
+  new_time$nday <- new_time$new_day + new_time$hour / 24
+  # Convert Julian day to date (in 2017)
+  time$ndte <- as.POSIXct(as.Date(time$nday, origin = as.Date("2019-01-01")),
+                          tz = 'Australia/Brisbane') - days(2) + hours(14)
+  temp$Datetime <- time$ndte
+  # Remove timestep if PSWR is none (for both potential and effective SWR)
+  if (j == 1) {
+    names(temp) <- c('Datetime', 'PSWR')
+    keep <- rep(1, nrow(temp))   # 1 = keep all time steps
+    keep <- rep(0, nrow(temp)) # 0 = remove night-time time steps
+    for (k in 2 : (nrow(temp) - 1)) {
+      if (temp$PSWR[k] != 0) {
+        keep[k] <- 1
+      } else if (temp$PSWR[k - 1] != 0 | temp$PSWR[k + 1] != 0) {
+        keep[k] <- 1
+      }
+    }
+  }
+  temp <- temp[which(keep == 1), ]
+  if (i == 1) {SR[[j]] <- temp} else {SR[[j]] <- rbind(SR[[j]], temp)}
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+dir1 <- 'D:/Backup/005_model/008_MD/02_outputs/03_hs'
+dir2 <- 'D:/Backup/005_model/008_MD/01_inputs/03_hs'
+dir3 <- 'D:/Backup/004_data/002_projData/008_MD/meteorology/swr'
+fils <- list(list.files(paste0(dir1, '/nodes_40m_4'), pattern = 'SR1'), 
+             list.files(paste0(dir1, '/nodes_40m_4'), pattern = 'SR4'))
+mesh <- shapefile(paste0("D:/Backup/005_model/008_MD/03_models/002_tuflow/",
+                         "set_up/model/sms/culgoa_012_mesh_whole.shp"))
+
+# ----
+
+# # READ IN SOLAR ----
+# for (i in 1 : nrow(mnth)) {
+#   for (j in 1 : 2) {
+#     temp <- read.csv(paste0(dir1, '/nodes_40m_4/', fils[[j]][mnth$numr[i]]), 
+#                      skip = 6)
+#     temp$Datetime <- as.POSIXct(temp$Datetime * 86400, origin = orig,
+#                                 tz = 'Australia/Brisbane') - days(2)
+#     temp$Datetime <- round_date(temp$Datetime, 'hour')
+#     if (j == 1) temp <- temp[, 1 : 2] # remove nodes 2 : n if PSWR
+#     time <- data.frame(date = temp$Datetime,
+#                        hour = hour(temp$Datetime),
+#                        jday = yday(temp$Datetime))
+#     # Fix times (-4 hours)
+#     tmp1 <- temp[1 : 4, ]
+#     tmp1[, 2 : length(tmp1)] <- 0
+#     temp <- rbind(temp[c(5 : nrow(temp)), ], tmp1)
+#     temp$Datetime <- time$date
+#     # Fix dates (flip seasons); July 1 = Jan 1
+#     time <- merge(time, jday[, c(1, 3)], by.x = 'jday', by.y = 'jday',
+#                   all.x = T, all.y = F)
+#     # Add hours as daily fractional
+#     time$nday <- time$nday + time$hour / 24
+#     # Convert Julian day to date (in 2017)
+#     time$ndte <- as.POSIXct(as.Date(time$nday, origin = as.Date("2017-01-01")),
+#                             tz = 'Australia/Brisbane') - days(2) + hours(14)
+#     temp$Datetime <- time$ndte
+#     # Remove timestep if PSWR is none (for both potential and effective SWR) 
+#     if (j == 1) {
+#       names(temp) <- c('Datetime', 'PSWR')
+#       keep <- rep(1, nrow(temp))   # 1 = keep all time steps
+#       # keep <- rep(0, nrow(temp)) # 0 = remove night-time time steps
+#       # for (k in 2 : (nrow(temp) - 1)) {
+#       #   if (temp$PSWR[k] != 0) {
+#       #     keep[k] <- 1
+#       #   } else if (temp$PSWR[k - 1] != 0 | temp$PSWR[k + 1] != 0) {
+#       #     keep[k] <- 1
+#       #   }
+#       # }
+#     }
+#     temp <- temp[which(keep == 1), ]
+#     if (i == 1) {SR[[j]] <- temp} else {SR[[j]] <- rbind(SR[[j]], temp)}
+#   }
+# }
+# # Rearrange data into months - proper
+# SR1 <- SR[[1]]; SR4 <- SR[[2]]
+# SR1 <- SR1[order(SR1$Datetime), ]; SR4 <- SR4[order(SR4$Datetime), ]
+# SR  <- list(SR1 = list(), SR4 = list())
+# i = j = 1
+# for (i in 1 : 12) {
+#   tmp1 <- SR1[which(month(SR1$Datetime) == i), ]
+#   tmp4 <- SR4[which(month(SR4$Datetime) == i), ]
+#   SR[[1]][[i]] <- tmp1; SR[[2]][[i]] <- tmp4
+#   names(SR[[1]])[i] <- names(SR[[2]])[i] <- paste0(ifelse(i < 10, '0', ''), i, 
+#                                                    '_', mnth$mnth[i])
+# }
+# saveRDS(object = SR, file = paste0(dir1, '/nodes_40m_4/solar_data_nodes_40m.RData'))
+# SR <- list(SR1 = SR1, SR4 = SR4)
+# ----
+
+# SR1 <- readRDS(file = paste0(dir1, '/nodes_40m_4/solar_data_nodes_40m.RData'))[[1]]
+# SR4 <- readRDS(file = paste0(dir1, '/nodes_40m_4/solar_data_nodes_40m.RData'))[[2]]
+SR  <- readRDS(file = paste0(dir1, '/nodes_40m_4/solar_data_nodes_40m.RData'))
+
+# ADJUST SOLAR TO BOM ----
+# headers: line 36, data: line 38
+# solH <- solr[36]; solr <- solr[38 : length(solr)]
+# solH <- unlist(strsplit(x = solH, split = '\\s+'))
+# solr <- data.frame(do.call('rbind', strsplit(x = solr, split = '\\s+')))
+# names(solr) <- solH
+# solr <- solr[, c(1, 11)]
+# solr$Radn <- as.numeric(solr$Radn) * 277.778 # Total daily solar
+# solr$Date <- as.POSIXct(solr$Date, '%Y%m%d', tz = 'Australia/Brisbane')
+# solr$jday <- yday(solr$Date)
+# solr$year <- year(solr$Date)
+# # divvy up (W m-2 per hour) based on Heatsource diurnal distributions
+# cntr <- 1
+# for (j in 2017 : 2022) {
+#   tmp1 <- solr[which(year(solr$Date) == j), ]
+#   for (i in 1 : 12) {
+#     tmp2 <- tmp1[which(month(tmp1$Date) == i), ]
+#     tmpS <- SR1[[i]]; year(tmpS$Datetime) <- j
+#     # Calculate percent of total daily from heat source
+#     tmpS$DATE <- floor_date(tmpS$Datetime, 'day')
+#     tmpD <- aggregate(tmpS$PSWR, by = list(floor_date(tmpS$Datetime, 'day')),
+#                       FUN = 'sum')
+#     tmpS <- merge(tmpS, tmpD, by.x = 'DATE', by.y = 'Group.1', all = T)
+#     tmpS$prct <- tmpS$PSWR / tmpS$x
+#     # Now apply to the BOM data to dis-aggregate to hourly
+#     tmpS <- merge(tmpS, tmp2[, 1 : 2], by.x = 'DATE', by.y = 'Date', all = T)
+#     tmpS$ASWR <- tmpS$prct * tmpS$Radn
+#     if (cntr == 1) {solR <- tmpS} else {solR <- rbind(solR, tmpS)}
+#     cntr <- cntr + 1
+#   }
+# }
+# names(solR) <- c('date', 'dte2', 'pswr_hrly_hs', 'pswr_daily_hs', 'pswr_hs_pctd',
+#                  'pswr_daily_bom', 'aswr_hrly_bom')
+# # 
+# saveRDS(file = paste0('D:/Backup/005_model/008_MD/01_inputs/02_tuflow/met/',
+#                       'ncfil/hs_2_bom_hourly_solar.RData'), object = solR)
+# Use this and reduce by the Heatsource reductions (percent not-shading)
+# ----
+
+solR <- readRDS(paste0('D:/Backup/005_model/008_MD/01_inputs/02_tuflow/met/',
+                       'ncfil/hs_2_bom_hourly_solar.RData'))
+
+# CREATE RASTERS ----
+cSze <- 50 # Grid cell size
+tmpG <- raster(xmn = as.integer(extent(mesh)@xmin / cSze) * cSze, 
+               xmx = (as.integer(extent(mesh)@xmax / cSze) + 1) * cSze, 
+               ymn = as.integer(extent(mesh)@ymin / cSze) * cSze, 
+               ymx = (as.integer(extent(mesh)@ymax / cSze) + 1) * cSze,
+               crs = mesh@proj4string, resolution = c(cSze, cSze), 
+               vals = NA)
+# Create a mask for cells outside of domain
+mask <- buffer(x = mesh, width = 100)
+ndes <- nde2[, c(10, 8, 9)]
+ndes$STREAM_KM <- round(ndes$nNdx * 0.05, 2)
+tmpS <- data.frame(
+  RKM = round(as.numeric(gsub('X', '', 
+                              names(SR[[2]][[1]])[2 : length(SR[[2]][[1]])])), 2)
+)
+
+# ----
+
+# Remove night-time timessteps except for bookend timesteps ----
+solR <- solR[which(year(solR$dte2) == 2019), ]
+solR$keep <- 0
+for (i in 2 : (nrow(solR) - 1)) {
+  if (solR$aswr_hrly_bom[i] != 0) {
+    solR$keep[i] <- 1
+  } else {
+    if (solR$aswr_hrly_bom[i - 1] != 0 | solR$aswr_hrly_bom[i + 1] != 0) {
+      solR$keep[i] <- 1
+    }
+  }
+}
+solR <- solR[which(solR$keep == 1), ]
+# ----
+
+# Create rasters # Just do 2019 for the moment. ----
+rstr <- list() # raster object
+cntr <- 1
+# a <- Sys.time()
+i = 5; # j = 12
+# for (i in 1 : 12) {
+for (j in 1 : nrow(SR[[2]][[i]])) {
+  DATE <- SR[[1]][[i]]$Datetime[j] + years(2)
+  if (DATE %in% solR$dte2) {
+    tmpE <- cbind(tmpS, rep(x = SR[[1]][[i]][j, 2], nrow(tmpS)),
+                  unlist((SR[[2]][[i]][j, 2 : length(SR[[2]][[i]])])))
+    names(tmpE)[2 : 3] <- c('totS', 'effS')
+    # Apply BOM solar
+    ASWR <- solR$aswr_hrly_bom[which(solR$dte2 == DATE)]
+    # What reaches the stream surface
+    # tmpE$bomS <- ifelse(tmpE$totS == 0, 0, ASWR * tmpE$effS / tmpE$totS)
+    
+    # Reduce by 50% to see the effect (adjust veg density later)
+    tmpE$bomS <- ifelse(tmpE$totS == 0, 0, 0.75 * ASWR * tmpE$effS / tmpE$totS)
+    # Reduce by 20% to see the effect (adjust veg density later)
+    
+    
+    tmpE <- merge(ndes, tmpE, by.x = 'STREAM_KM', by.y = 'RKM', all = T)
+    rstr[[cntr]] <- rasterize(x = cbind(tmpE$east, tmpE$nrth), y = tmpG,
+                              field = tmpE$bomS, fun = mean,
+                              background = SR[[1]][[i]][j, 2])
+    rstr[[cntr]] <- mask(x = rstr[[cntr]], mask = mask, inverse = F)
+    names(rstr)[cntr] <- as.character(DATE)
+    cntr <- cntr + 1
+  }
+}
+# }
+# Sys.time() - a # ~2.5 minutes for 31-day month; 31 minutes for a year
+saveRDS(file = paste0(dir1, '/nodes_40m_4/SWR_50m_allTS_BOM_red_0.75p.RData'),
+        object = rstr)
+library(ncdf4); library(ggplot2); library(reshape2); library(lubridate); 
+library(raster)
+remove(list = ls()); cat("\014")
+# DATA ----
+dir1 <- 'D:/Backup/005_model/008_MD/02_outputs/03_hs'
+# r    <- readRDS(paste0(dir1, '/nodes_40m_4/SWR_50m_allTS_BOM.RData'))
+r    <- readRDS(paste0(dir1, '/nodes_40m_4/SWR_50m_allTS_BOM_red_0.75p.RData'))
+dtes <- names(r)
+dtes <- ifelse(nchar(dtes) == 10, paste0(dtes, ' 00:00:00'), dtes)
+dtes <- as.POSIXct(dtes, '%Y-%m-%d %H:%M:%S', tz = 'Australia/Brisbane') 
+mnth <- data.frame(mntR = 1 : 12, mntN = c('jan', 'feb', 'mar', 'apr', 
+                                           'may', 'jun', 'jul', 'aug', 'sep', 
+                                           'oct', 'nov', 'dec'))
+# ----
+# BREAK INTO MONTHS ----
+x    <- xFromCol(r[[1]], 1 : ncol(r[[1]]))
+y    <- yFromRow(r[[1]], 1 : nrow(r[[1]]))
+xDim <- ncdim_def(name = "ni", units = "m", longname = "meters_east", 
+                  vals = as.double(as.array(x)))
+yDim <- ncdim_def(name = "nj", units = "m", longname = "meters_north", 
+                  vals = as.double(as.array(y))) 
+i = 5
+# for (i in 5) { # 2 : 12) {
+tmpD <- dtes[which(month(dtes) == i)]
+tmpR <- r[tmpD]
+
+# tmpR <- r
+# Create NetCDF file ----
+dirN <- 'D:/Backup/005_model/008_MD/01_inputs/02_tuflow/met/ncfil'
+ncFl <- paste0(dirN, '/swr_50m_',  ifelse(mnth$mntR[i] < 10, '0', ''), 
+               mnth$mntR[i], '_', mnth$mntN[i], '_2019_allTS_BOM_red_0.75p.nc')
+# define dimensions
+tOrg <- as.POSIXct("1990-01-01", '%Y-%m-%d', tz = 'Australia/Brisbane')
+# year(t) <- 2019
+t    <- as.numeric(tmpD - tOrg) * 24
+tDim <- ncdim_def(name = "time", units = 'hour', vals = as.double(as.array(t)),
+                  longname = 'Time in decimal hours since 01/01/1990 00:00')
+# define variables
+swr  <- ncvar_def(name = 'swr', units = 'W m^-2', dim = list(xDim, yDim, tDim), 
+                  missval = -99, longname = 'Short wave radiation', 
+                  prec = 'float')
+east <- ncvar_def(name = 'east', units = 'm', dim = list(xDim), 
+                  missval = -99, longname = 'Easting', prec = 'float')
+nrth <- ncvar_def(name = 'nrth', units = 'm', dim = list(yDim), 
+                  missval = -99, longname = 'Northing', prec = 'float')
+# create netCDF file and put arrays
+ncout <- nc_create(ncFl, list(east, nrth, swr), force_v4 = T)
+# put variables
+rArr <- array(NA, dim = c(dim(r[[1]])[1 : 2], length(tmpD))) # rows, cols, time
+eArr <- array(x, dim = dim(r[[1]])[2])
+nArr <- array(y, dim = dim(r[[1]])[1]) # 
+for (j in 1 : length(tmpD)) {rArr[, , j] <- values(r[[j]])}
+ncvar_put(ncout, east, eArr)
+ncvar_put(ncout, nrth, nArr)
+ncvar_put(ncout,  swr, rArr)
+# put additional attributes into dimension and data variables
+ncatt_put(ncout,"east","axis","X") #,verbose=FALSE) #,definemode=FALSE)
+ncatt_put(ncout,"nrth","axis","Y")
+ncatt_put(ncout,"time","axis","T")
+# add global attributes
+ncatt_put(ncout,0,"title", 'MD-WERP, 9.2 Ecyhydrology Modelling')
+ncatt_put(ncout,0,"institution", 'GRIFFITH UNIVERSITY')
+ncatt_put(ncout,0,"source", 'ESTIMATED')
+# Close file
+nc_close(ncout)
+# }
+
+
+# rArr[, , j] <- values(r[[j]])
+# y <- raster(ext = r[[1]]@extent, crs = r[[1]]@crs, resolution = c(50, 50))
+# x <- raster(rArr[, , j], y)
+# plot(x)
+# 
+# r[[1]]@extent
+# x@extent
+# 
+# r[[1]]@extent@xmax - r[[1]]@extent@xmin; r[[1]]@extent@ymax - r[[1]]@extent@ymin
+# x@extent@xmax - x@extent@xmin; x@extent@ymax - x@extent@ymin
+# 
+# 
+# plot(x)
+# plot(r[[j]])
+# dim(x)
+# dim(r[[j]])
+# res(x)
+# res(r[[j]])
+
+# These are the same
+
