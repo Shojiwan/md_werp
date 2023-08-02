@@ -22,7 +22,7 @@ dir_batch    <- c(cd1    = gsub('/', paste(rep('\\', 2), collapse = ''),
 # Read in the control file (i.e., model start and end dates)
 control_file <- readLines(paste0(path, 'culgoa_cf.mst'))
 # Read in HS control file template and replace input/output paths
-cf_template  <- readLines(paste0(path, "001_HS/cf/hs_cf_tmpl.csv"))
+cf_template  <- readLines(paste0(path, "001_HS/cf/hs_cntrl_file_template.csv"))
 cf_template  <- gsub('XX_INPUT_DIR_XX', dir_control['input'], cf_template)
 cf_template  <- gsub('XX_OUTPUT_DIR_XX', dir_control['output'], cf_template)
 # Create the monthly control files (model is run in monthly batches)

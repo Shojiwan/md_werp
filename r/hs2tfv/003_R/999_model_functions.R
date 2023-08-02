@@ -35,3 +35,22 @@ write_scripts <- function(path) {
   }
 }
 
+shift_solar_ts <- function(df, hours = 0) {
+  # df = dataframe with "time-base" indeces adjusted by hours: (-) = shift time 
+  # backward, and (+) = shift time forward; assumes time series is in column 1
+  original_time <- df[, 1]
+  if (hours != 0) {
+    if (hours < 0) {
+      hours_df <- df[(nrow(df) + hours + 1) : nrow(df), ]
+      hours_df[, 2 : length(df)] <- 0
+      df <- rbind(hours_df, df[1 : (nrow(df) + hours), ])
+    } else {
+      hours_df <- df[1 : hours, ]
+      hours_df[, 2 : length(hours_df)] <- 0
+      df <- rbind(df[(hours + 1) : nrow(df), ], hours_df)
+    }
+  }
+  df[, 1] <- original_time
+  return(df)
+}
+
