@@ -102,6 +102,7 @@ nodes_shape <- shapefile(paste0("C:/001_MD_WERP/002_R/md_werp/r/hs2tfv/004_DATA/
                          "culgoa_bank_TW_line_nodes_50m_wgs84.shp"))
 nodes_shape <- nodes_shape@data
 
+
 #2345678901234567890123456789012345678901234567890123456789012345678901234567890
 # Save object 
 data <- list(month = months, julian_days = julian_days, origin = orig,
