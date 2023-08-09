@@ -28,6 +28,7 @@ path_hs_out  <- paste0(path, '001_HS/out/')
 hs_output    <- list.files(path_hs_out, pattern = 'SR4')
 # All other data -- includes model mesh, stream nodes, solar data (HS and BOM)
 data <- readRDS(paste0(path, '004_DATA/supporting_data.RData'))
+# ----
 
 # READ IN HEATSOURCE SOLAR AT WSE (SR4) ----
 for (month in model_months) { 
@@ -58,23 +59,7 @@ for (node in 2 : length(SR4)) {
                            SR1$hs_solarrad_tot_potential[cond]
   SR4_BOM[cond, node] <- eff_shade[cond, node] * SR1_BOM[cond, 2]
 }
-
-# CREATE RASTERS ----
-cSze <- 50 # Grid cell size
-tmpG <- raster(xmn = as.integer(extent(data[['model_domain']])@xmin / cSze) * cSze, 
-               xmx = (as.integer(extent(data[['model_domain']])@xmax / cSze) + 1) * cSze, 
-               ymn = as.integer(extent(data[['model_domain']])@ymin / cSze) * cSze, 
-               ymx = (as.integer(extent(data[['model_domain']])@ymax / cSze) + 1) * cSze,
-               crs = data[['model_domain']]@proj4string, resolution = c(cSze, cSze), 
-               vals = NA)
-# Create a mask for cells outside of domain
-mask <- buffer(x = data[['model_domain']], width = 100)
-nodes <- data[['nodes_sf']][, c(10, 8, 9)]
-nodes$STREAM_KM <- round(nodes$nNdx * 0.05, 2)
-tmpS <- data.frame(
-  RKM = round(as.numeric(gsub('SR4_', '', 
-                              names(SR4_BOM)[2 : length(SR4_BOM)])), 2)
-)
+# ----
 
 # Remove night-time timessteps except for bookend zero timesteps ----
 SR1_BOM$keep <- 0
@@ -91,96 +76,80 @@ SR4_BOM <- SR4_BOM[which(SR1_BOM$keep == 1), ]
 SR1_BOM <- SR1_BOM[which(SR1_BOM$keep == 1), ]
 # ----
 
-# Create rasters # Just do 2019 for the moment. ----
-rstr <- list() # raster object
-cntr <- 1
-
-month = 5; # j = 12
-# for (i in 1 : 12) {
-for (month in model_months) {
-  SR1_temp <- SR1_BOM[which(month(SR1_BOM$date) == month), ]
-  SR4_temp <- SR4_BOM[which(month(SR4_BOM$Datetime) == month), ]
-  for (t in 1 : length(SR4_BOM$Datetime)) {
-    DATE <- SR4_temp$Datetime[t]
-    tmpE <- cbind(tmpS, SR4_BOM = unlist(SR4_BOM[t, 2 : length(SR4_temp)]))
-    tmpE <- merge(nodes, tmpS, by.x = 'STREAM_KM', by.y = 'RKM', all = T)
-    rstr[[cntr]] <- rasterize(x = cbind(tmpE$east, tmpE$nrth), y = tmpG,
-                              field = tmpE$SR4_BOM, fun = mean,
-                              background = SR1_temp$swr_hrly[t])
-    rstr[[cntr]] <- mask(x = rstr[[cntr]], mask = mask, inverse = F)
-    names(rstr)[cntr] <- as.character(DATE)
-    cntr <- cntr + 1
-  }
-}
-
-
-
-
-# CREATE NCDF NEED TO PUT THIS INTO THE LOOP ABOVE
-library(ncdf4); library(ggplot2); library(reshape2); library(lubridate); 
-library(raster)
-remove(list = ls()); cat("\014")
-# DATA ----
-dir1 <- 'D:/Backup/005_model/008_MD/02_outputs/03_hs'
-# r    <- readRDS(paste0(dir1, '/nodes_40m_4/SWR_50m_allTS_BOM.RData'))
-r    <- readRDS(paste0(dir1, '/nodes_40m_4/SWR_50m_allTS_BOM_red_0.75p.RData'))
-dtes <- names(r)
-dtes <- ifelse(nchar(dtes) == 10, paste0(dtes, ' 00:00:00'), dtes)
-dtes <- as.POSIXct(dtes, '%Y-%m-%d %H:%M:%S', tz = 'Australia/Brisbane') 
-mnth <- data.frame(mntR = 1 : 12, mntN = c('jan', 'feb', 'mar', 'apr', 
-                                           'may', 'jun', 'jul', 'aug', 'sep', 
-                                           'oct', 'nov', 'dec'))
-# ----
-# BREAK INTO MONTHS ----
-x    <- xFromCol(r[[1]], 1 : ncol(r[[1]]))
-y    <- yFromRow(r[[1]], 1 : nrow(r[[1]]))
+# CREATE RASTERS AND NETCDF FILES ----
+cSze <- 50 # Grid cell size
+tmpG <- raster(xmn = as.integer(extent(data[['model_domain']])@xmin / cSze) * cSze, 
+               xmx = (as.integer(extent(data[['model_domain']])@xmax / cSze) + 1) * cSze, 
+               ymn = as.integer(extent(data[['model_domain']])@ymin / cSze) * cSze, 
+               ymx = (as.integer(extent(data[['model_domain']])@ymax / cSze) + 1) * cSze,
+               crs = data[['model_domain']]@proj4string, resolution = c(cSze, cSze), 
+               vals = NA)
+# Create a mask for cells outside of domain
+mask <- buffer(x = data[['model_domain']], width = 100)
+nodes <- data[['nodes_sf']][, c(10, 8, 9)]
+nodes$STREAM_KM <- round(nodes$nNdx * 0.05, 2)
+tmpS <- data.frame(
+  RKM = round(as.numeric(gsub('SR4_', '', 
+                              names(SR4_BOM)[2 : length(SR4_BOM)])), 2)
+)
+# Geographic NCDF dimensions and variables
+x    <- xFromCol(tmpG, 1 : ncol(tmpG))
+y    <- yFromRow(tmpG, 1 : nrow(tmpG))
 xDim <- ncdim_def(name = "ni", units = "m", longname = "meters_east", 
                   vals = as.double(as.array(x)))
 yDim <- ncdim_def(name = "nj", units = "m", longname = "meters_north", 
                   vals = as.double(as.array(y))) 
-i = 5
-# for (i in 5) { # 2 : 12) {
-tmpD <- dtes[which(month(dtes) == i)]
-tmpR <- r[tmpD]
-
-# tmpR <- r
-# Create NetCDF file ----
-dirN <- 'D:/Backup/005_model/008_MD/01_inputs/02_tuflow/met/ncfil'
-ncFl <- paste0(dirN, '/swr_50m_',  ifelse(mnth$mntR[i] < 10, '0', ''), 
-               mnth$mntR[i], '_', mnth$mntN[i], '_2019_allTS_BOM_red_0.75p.nc')
-# define dimensions
-tOrg <- as.POSIXct("1990-01-01", '%Y-%m-%d', tz = 'Australia/Brisbane')
-# year(t) <- 2019
-t    <- as.numeric(tmpD - tOrg) * 24
-tDim <- ncdim_def(name = "time", units = 'hour', vals = as.double(as.array(t)),
-                  longname = 'Time in decimal hours since 01/01/1990 00:00')
-# define variables
-swr  <- ncvar_def(name = 'swr', units = 'W m^-2', dim = list(xDim, yDim, tDim), 
-                  missval = -99, longname = 'Short wave radiation', 
-                  prec = 'float')
 east <- ncvar_def(name = 'east', units = 'm', dim = list(xDim), 
                   missval = -99, longname = 'Easting', prec = 'float')
 nrth <- ncvar_def(name = 'nrth', units = 'm', dim = list(yDim), 
                   missval = -99, longname = 'Northing', prec = 'float')
-# create netCDF file and put arrays
-ncout <- nc_create(ncFl, list(east, nrth, swr), force_v4 = T)
-# put variables
-rArr <- array(NA, dim = c(dim(r[[1]])[1 : 2], length(tmpD))) # rows, cols, time
-eArr <- array(x, dim = dim(r[[1]])[2])
-nArr <- array(y, dim = dim(r[[1]])[1]) # 
-for (j in 1 : length(tmpD)) {rArr[, , j] <- values(r[[j]])}
-ncvar_put(ncout, east, eArr)
-ncvar_put(ncout, nrth, nArr)
-ncvar_put(ncout,  swr, rArr)
-# put additional attributes into dimension and data variables
-ncatt_put(ncout,"east","axis","X") #,verbose=FALSE) #,definemode=FALSE)
-ncatt_put(ncout,"nrth","axis","Y")
-ncatt_put(ncout,"time","axis","T")
-# add global attributes
-ncatt_put(ncout,0,"title", 'MD-WERP, 9.2 Ecyhydrology Modelling')
-ncatt_put(ncout,0,"institution", 'GRIFFITH UNIVERSITY')
-ncatt_put(ncout,0,"source", 'ESTIMATED')
-# Close file
-nc_close(ncout)
-# }
+for (month in model_months) {
+  # Create raster objects 
+  rstr <- list() 
+  SR1_temp <- SR1_BOM[which(month(SR1_BOM$date) == month), ]
+  SR4_temp <- SR4_BOM[which(month(SR4_BOM$Datetime) == month), ]
+  for (t in 1 : length(SR4_temp$Datetime)) {
+    DATE <- SR4_temp$Datetime[t]
+    tmpE <- cbind(tmpS, SR4_temp = unlist(SR4_temp[t, 2 : length(SR4_temp)]))
+    tmpE <- merge(nodes, tmpE, by.x = 'STREAM_KM', by.y = 'RKM', all = T)
+    rstr[[t]] <- rasterize(x = cbind(tmpE$east, tmpE$nrth), y = tmpG,
+                           field = tmpE$SR4_temp, fun = mean,
+                           background = SR1_temp$swr_hrly[t])
+    rstr[[t]] <- mask(x = rstr[[t]], mask = mask, inverse = F)
+    names(rstr)[t] <- as.character(DATE)
+  }
+  # CREATE AND POPULATE THE NCDF
+  time <- as.numeric(SR1_temp$date - data[['origin']]) * 24
+  tDim <- ncdim_def(name = "time", units = 'hour', 
+                    vals = as.double(as.array(time)),
+                    longname = 'Time in decimal hours since 01/01/1990 00:00')
+  ncFl <- paste0(path, '002_TFV/in/swr_',  
+                 ifelse(data[['month']]$numr[month] < 10, '0', ''), 
+                 data[['month']]$numr[month], '_', data[['month']]$mnth[month], 
+                 '.nc')
+  swr  <- ncvar_def(name = 'swr', units = 'W m^-2', dim = list(xDim, yDim, tDim), 
+                    missval = -99, longname = 'Short wave radiation', 
+                    prec = 'float')
+  # create netCDF file and put arrays
+  ncout <- nc_create(ncFl, list(east, nrth, swr), force_v4 = T)
+  # put variables
+  rArr <- array(NA, dim = c(dim(rstr[[1]])[1 : 2], length(time))) # rows, cols, time
+  eArr <- array(x, dim = dim(rstr[[1]])[2])
+  nArr <- array(y, dim = dim(rstr[[1]])[1]) # 
+  for (j in 1 : length(time)) {rArr[, , j] <- values(rstr[[j]])}
+  ncvar_put(ncout, east, eArr)
+  ncvar_put(ncout, nrth, nArr)
+  ncvar_put(ncout,  swr, rArr)
+  # put additional attributes into dimension and data variables
+  ncatt_put(ncout,"east","axis","X") #,verbose=FALSE) #,definemode=FALSE)
+  ncatt_put(ncout,"nrth","axis","Y")
+  ncatt_put(ncout,"time","axis","T")
+  # add global attributes
+  ncatt_put(ncout,0,"title", 'MD-WERP, 9.2 Ecyhydrology Modelling')
+  ncatt_put(ncout,0,"institution", 'GRIFFITH UNIVERSITY')
+  ncatt_put(ncout,0,"contact", 'ryan.shojinaga@griffithuni.edu.au')
+  ncatt_put(ncout,0,"source", 'ESTIMATED')
+  # Close file
+  nc_close(ncout)
+}
 
