@@ -24,7 +24,8 @@ julian_days <- data.frame(
                                    origin = as.Date("2017-01-01")),
                            tz = 'Australia/Brisbane') - days(2) + hours(14)
 )
-orig <- as.POSIXct('01-01-1900', '%d-%m-%Y', tz = 'Australia/Brisbane')
+origin_EXC <- as.POSIXct('01-01-1900', '%d-%m-%Y', tz = 'Australia/Brisbane')
+origin_TFV <- as.POSIXct('01-01-1990', '%d-%m-%Y', tz = 'Australia/Brisbane')
 
 #2345678901234567890123456789012345678901234567890123456789012345678901234567890
 # Total potential solar above features (Heatsource). Is not actual or effective
@@ -105,7 +106,8 @@ nodes_shape <- nodes_shape@data
 
 #2345678901234567890123456789012345678901234567890123456789012345678901234567890
 # Save object 
-data <- list(month = months, julian_days = julian_days, origin = orig,
+data <- list(month = months, julian_days = julian_days, origin_EXC = orig,
+             origin_TFV = orig_2
              HS_SR1 = hs_swr_TP, BOM_SR1 = solar_BOM, model_domain = mesh,
              nodes_tw = nodes_TW, nodes_sf = nodes_shape)
 saveRDS(object = data, file = paste0(path, 'supporting_data.RData'))

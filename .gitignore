@@ -75,3 +75,9 @@ r/hs2tfv/002_TFV/in/swr_07_jul.nc
 r/hs2tfv/002_TFV/in/swr_06_jun.nc
 r/hs2tfv/002_TFV/in/swr_05_may.nc
 r/hs2tfv/001_HS/out/Heat_Output.zip
+*.nc
+r/hs2tfv/002_TFV/in/wind_09_sep.RData
+r/hs2tfv/002_TFV/in/wind_05_may.RData
+r/hs2tfv/002_TFV/in/wind_06_jun.RData
+r/hs2tfv/002_TFV/in/wind_07_jul.RData
+r/hs2tfv/002_TFV/in/wind_08_aug.RData

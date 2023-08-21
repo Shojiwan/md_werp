@@ -23,6 +23,8 @@ model_months <- month(clean_input(control_file[grep('start_date',
                 month(clean_input(control_file[grep('end_date', 
                                                     control_file)]))
 model_year   <- year(clean_input(control_file[grep('start_date', control_file)]))
+origin_TFV   <- as.POSIXct('1990-01-01', '%Y-%m-%d', tz = 'Australia/Brisbane')
+origin_EXC   <- as.POSIXct('1900-01-01', '%Y-%m-%d', tz = 'Australia/Brisbane')
 path_hs_out  <- paste0(path, '001_HS/out/')
 hs_output    <- list.files(path_hs_out, pattern = 'SR4')
 # All other data -- includes model mesh, stream nodes, solar data (HS and BOM)
@@ -40,7 +42,7 @@ for (month in model_months) {
   }
 }
 SR4$Datetime <- round_date(
-  as.POSIXct(SR4$Datetime * 86400, origin = data[['origin']], 
+  as.POSIXct(SR4$Datetime * 86400, origin = origin_EXC, 
              tz = 'Australia/Brisbane') - days(2), 'hour'
 )
 names(SR4)[2 : length(SR4)] <- gsub('X', 'SR4_', names(SR4)[2 : length(SR4)])
@@ -118,7 +120,7 @@ for (month in model_months) {
     names(rstr)[t] <- as.character(DATE)
   }
   # CREATE AND POPULATE THE NCDF
-  time <- as.numeric(SR1_temp$date - data[['origin']]) * 24
+  time <- as.numeric(SR1_temp$date - origin_TFV) * 24
   tDim <- ncdim_def(name = "time", units = 'hour', 
                     vals = as.double(as.array(time)),
                     longname = 'Time in decimal hours since 01/01/1990 00:00')
