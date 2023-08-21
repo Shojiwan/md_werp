@@ -1,3 +1,8 @@
+REM This template is the batch file template that creates a model run with
+REM component toggles (e.g., wind or sediment) for execution or exclusion.
+REM The 
+
+
 @ ECHO off
 
 Rscript 003_R\001_adjust_landcodes.R

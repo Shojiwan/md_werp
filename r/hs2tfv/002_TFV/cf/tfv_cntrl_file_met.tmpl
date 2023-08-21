@@ -1,0 +1,38 @@
+!_______________________________________________________________
+! MET Forcing
+!_______________________________________________________________
+!Specifies a netCDF location and filename that defines grid 
+!coordinates for the following parameters: SWR and wind
+! swr_50m_05_may_2019_allTS_BOM_xx.nc does not have transposition or time adjustment -- correct one...
+grid definition file == ./swr_50m_05_may_2019_allTS_BOM_red_0.75p.nc
+  grid definition variables == east,nrth
+  grid definition label == met_grid
+end grid
+!Downward shortwave radiation (W m^-2) 
+bc == SW_RAD_GRID, met_grid, ./swr_50m_05_may_2019_allTS_BOM_red_0.75p.nc
+  bc header == time,swr
+  bc update dt == 900.
+  bc time units == hours
+  bc reference time == 01/01/1990 00:00
+end bc
+bc == W10_grid, met_grid, ./wnd_50m_05_may_2019_012.nc
+  bc header == time,u,v
+  bc update dt == 900.
+  bc time units == hours
+  bc reference time == 01/01/1990 00:00
+end bc
+bc == LW_RAD, ./met_bc_culgoa_011.csv
+  bc header == DATE,LWRAD
+end bc                                              
+bc == PRECIP, ./met_bc_culgoa_011.csv
+  bc header == DATE,RAIN
+end bc
+bc == AIR_TEMP, ./met_bc_culgoa_011.csv
+  bc header == DATE,TEMP
+end bc
+bc == REL_HUM, ./met_bc_culgoa_011.csv
+  bc header == DATE,RHUM
+end bc
+! bc == MSLP, ./met_bc_culgoa_011.csv
+!   bc header == DATE,MSLP
+! end bc

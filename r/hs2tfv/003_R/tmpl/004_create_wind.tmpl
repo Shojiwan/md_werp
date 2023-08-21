@@ -9,146 +9,158 @@ library(raster)
 remove(list = ls()); cat("\014")
 # DATA ----
 # Path to model folder and source functions
-path         <- XX_PATH_XX
+# path         <- XX_PATH_XX
+path         <- 'C:/001_MD_WERP/002_R/md_werp/r/hs2tfv/'
 source(paste0(path, '003_R/999_model_functions.R'))
 # READ IN DATA, FILES AND INFORMATION 
 control_file <- readLines(paste0(path, 'culgoa_cf.mst'))
-model_months <- month(clean_input(control_file[grep('start_date', 
-                                                    control_file)])) : 
-                month(clean_input(control_file[grep('end_date', 
-                                                    control_file)]))
-model_year   <- year(clean_input(control_file[grep('start_date', control_file)]))
-origin_TFV   <- as.POSIXct('1990-01-01', '%Y-%m-%d', tz = 'Australia/Brisbane')
-data         <- readRDS(paste0(path, '004_DATA/supporting_data.RData'))
-wind         <- read.csv(paste0(path, '004_DATA/wind_data_w_WRF.csv'))
-wind$date    <- as.POSIXct(wind$date, '%Y-%m-%d %H:%M:%S', 
-                           tz = 'Australia/Brisbane')
-veg_type     <- raster(paste0(path, '004_DATA/vegC_50m.asc'))
-# ----
 
-# TEMPLATE GRID ----
-cSze <- 50 # Grid cell size
-tmpG <- raster(
-  xmn = as.integer(extent(data[['model_domain']])@xmin / cSze) * cSze, 
-  xmx = (as.integer(extent(data[['model_domain']])@xmax / cSze) + 1) * cSze, 
-  ymn = as.integer(extent(data[['model_domain']])@ymin / cSze) * cSze, 
-  ymx = (as.integer(extent(data[['model_domain']])@ymax / cSze) + 1) * cSze,
-  crs = data[['model_domain']]@proj4string, resolution = c(cSze, cSze), 
-  vals = NA
-)
-# Create a mask for cells outside of domain
-mask <- buffer(x = data[['model_domain']], width = 100)
-# ----
-
-# APPLY CHANGES TO WIND HERE ----
-# This is wind speed at 1m based on wind speed at 10m and reductions
-wind$u.e <- wind$red_E * wind$u_kph; wind$v.e <- wind$red_E * wind$v_kph
-wind$u.f <- wind$red_F * wind$u_kph; wind$v.f <- wind$red_F * wind$v_kph
-wind$u.a <- wind$red_A * wind$u_kph; wind$v.a <- wind$red_A * wind$v_kph
-wind$u.b <- wind$red_B * wind$u_kph; wind$v.b <- wind$red_B * wind$v_kph
-# No WRF application
-# wind$u_e <- wind$u; wind$v_e <- wind$v
-# wind$u_f <- wind$u; wind$v_f <- wind$v
-# wind$u_a <- wind$u; wind$v_a <- wind$v
-# wind$u_b <- wind$u; wind$v_b <- wind$v
-# ----
-
-# CREATE NETCDF FILES ----
-# Create grid dimensions
-x    <- xFromCol(tmpG, 1 : ncol(tmpG))
-y    <- yFromRow(tmpG, 1 : nrow(tmpG))
-xDim <- ncdim_def(name = "ni", units = "m", longname = "meters_east", 
-                  vals = as.double(as.array(x)))
-yDim <- ncdim_def(name = "nj", units = "m", longname = "meters_north", 
-                  vals = as.double(as.array(y))) 
-east <- ncvar_def(name = 'east', units = 'm', dim = list(xDim), 
-                  missval = -99, longname = 'Easting', prec = 'float')
-nrth <- ncvar_def(name = 'nrth', units = 'm', dim = list(yDim), 
-                  missval = -99, longname = 'Northing', prec = 'float')
-
-# wrf: 1 = e; 2 = f; 3 = a; 4 = b 
-veg_type_df <- data.frame(rasterToPoints(veg_type))
-veg_type_df <- merge(veg_type_df, 
-                     data.frame(veg_type = 1 : 4, col1 = grep('u\\.', names(wind))),
-                     by.x = 'vegC_50m', by.y = 'veg_type', all = T)
-a <- Sys.time()
-for (month in model_months) {
-  tmpW <- wind[which(month(wind$date) == month &
-                       year(wind$date) == model_year), ]
-  # Create raster objects 
-  wind_rstr <- list(u = list(), v = list())
-  for (t in 1 : length(tmpW$date)) {
-    wnd1 <- data.frame(col1 = grep('u\\.', names(tmpW)),
-                       u = unlist(tmpW[t, grep('u\\.', names(tmpW))]),
-                       v = unlist(tmpW[t, grep('v\\.', names(tmpW))]))
-    dfU <- merge(veg_type_df, wnd1[, c(1, 2)], 
-                 by.x = 'col1', by.y = 'col1', all = T)
-    dfV <- merge(veg_type_df, wnd1[, c(1, 3)], 
-                 by.x = 'col1', by.y = 'col1', all = T)
-    wind_rstr[['u']][[t]] <- rasterize(x = cbind(dfU$x, dfU$y), y = tmpG, 
-                                       field = dfU$u, fun = mean, background = 0)
-    wind_rstr[['v']][[t]] <- rasterize(x = cbind(dfV$x, dfV$y), y = tmpG, 
-                                       field = dfV$v, fun = mean, background = 0)
-    wind_rstr[['u']][[t]] <- mask(x = wind_rstr[['u']][[t]], mask = mask, 
-                                  inverse = F)
-    wind_rstr[['v']][[t]] <- mask(x = wind_rstr[['v']][[t]], mask = mask, 
-                                  inverse = F)
-  }
-  # Save the rasters and modify these cause they take a long time to generate
-  # on there own
-  saveRDS(object = wind_rstr, 
-          file = paste0(path, '002_TFV/in/wind_',  
-                        ifelse(data[['month']]$numr[month] < 10, '0', ''), 
-                        data[['month']]$numr[month], '_', data[['month']]$mnth[month], 
-                        '.RData'))
-  # Create NDCF
-  ncFl <- paste0(path, '002_TFV/in/wind_',  
-                 ifelse(data[['month']]$numr[month] < 10, '0', ''), 
-                 data[['month']]$numr[month], '_', data[['month']]$mnth[month], 
-                 '.nc')
-  time <- as.numeric(tmpW$date - origin_TFV) * 24
-  tDim <- ncdim_def(name = "time", units = 'hour', 
-                    vals = as.double(as.array(time)),
-                    longname = 'Time in decimal hours since 01/01/1990 00:00')
-  wndU <- ncvar_def(name = 'u', units = 'm s^-1', dim = list(xDim, yDim, tDim),
-                    missval = -9999, longname = 'Windspeed, E/W vector',
-                    prec = 'float')
-  wndV <- ncvar_def(name = 'v', units = 'm s^-1', dim = list(xDim, yDim, tDim),
-                    missval = -9999, longname = 'Windspeed, N/S vector',
-                    prec = 'float')
-  ncout <- nc_create(ncFl, list(east, nrth, wndU, wndV), force_v4 = T)
-  # put variables
-  uArr <- array(NA, dim = c(dim(wind_rstr[['u']][[1]])[2 : 1], length(time)))
-  vArr <- array(NA, dim = c(dim(wind_rstr[['v']][[1]])[2 : 1], length(time)))
-  eArr <- array(xFromCol(wind_rstr[[1]][[1]], 1 : ncol(wind_rstr[[1]][[1]])), 
-                dim = c(dim(wind_rstr[['u']][[1]])[2]))
-  nArr <- array(yFromRow(wind_rstr[[1]][[1]], 1 : nrow(wind_rstr[[1]][[1]])), 
-                dim = c(dim(wind_rstr[['u']][[1]])[1]))
-  for (j in 1 : length(time)) {
-    uArr[, , j] <- getValues(wind_rstr[['u']][[j]])
-    vArr[, , j] <- getValues(wind_rstr[['v']][[j]])
-  }
-  ncvar_put(ncout, wndU, uArr)
-  ncvar_put(ncout, wndV, vArr)
-  ncvar_put(ncout, east, eArr)
-  ncvar_put(ncout, nrth, nArr)
-  # put additional attributes into dimension and data variables
-  ncatt_put(ncout,"east","axis","X") #,verbose=FALSE) #,definemode=FALSE)
-  ncatt_put(ncout,"nrth","axis","Y")
-  ncatt_put(ncout,"time","axis","T")
-  # add global attributes
-  ncatt_put(ncout, 0, "title", 'MD-WERP, 9.2 Ecyhydrology Modelling')
-  ncatt_put(ncout, 0, "institution", 'GRIFFITH UNIVERSITY')
-  ncatt_put(ncout, 0, "contact", 'ryan.shojinaga@griffithuni.edu.au')
-  ncatt_put(ncout, 0, "source", 'SYNTHETIC')
-  # Close file
-  nc_close(ncout)
-}
-b <- Sys.time()
-b - a
-# So this takes ~5 hours, too long, so just use the scalar adjustment in the 
-# tuflow control file
+# paste0(path, '002_TFV/in/wind_',  
+#        ifelse(data[['month']]$numr[month] < 10, '0', ''), 
+#        data[['month']]$numr[month], '_', data[['month']]$mnth[month], 
+#        '.nc')
 
 
-# ----
 
+
+
+
+# model_months <- month(clean_input(control_file[grep('start_date', 
+#                                                     control_file)])) : 
+#                 month(clean_input(control_file[grep('end_date', 
+#                                                     control_file)]))
+# model_year   <- year(clean_input(control_file[grep('start_date', control_file)]))
+# origin_TFV   <- as.POSIXct('1990-01-01', '%Y-%m-%d', tz = 'Australia/Brisbane')
+# data         <- readRDS(paste0(path, '004_DATA/supporting_data.RData'))
+# wind         <- read.csv(paste0(path, '004_DATA/wind_data_w_WRF.csv'))
+# wind$date    <- as.POSIXct(wind$date, '%Y-%m-%d %H:%M:%S', 
+#                            tz = 'Australia/Brisbane')
+# veg_type     <- raster(paste0(path, '004_DATA/vegC_50m.asc'))
+# # ----
+# 
+# # TEMPLATE GRID ----
+# cSze <- 50 # Grid cell size
+# tmpG <- raster(
+#   xmn = as.integer(extent(data[['model_domain']])@xmin / cSze) * cSze, 
+#   xmx = (as.integer(extent(data[['model_domain']])@xmax / cSze) + 1) * cSze, 
+#   ymn = as.integer(extent(data[['model_domain']])@ymin / cSze) * cSze, 
+#   ymx = (as.integer(extent(data[['model_domain']])@ymax / cSze) + 1) * cSze,
+#   crs = data[['model_domain']]@proj4string, resolution = c(cSze, cSze), 
+#   vals = NA
+# )
+# # Create a mask for cells outside of domain
+# mask <- buffer(x = data[['model_domain']], width = 100)
+# # ----
+# 
+# # APPLY CHANGES TO WIND HERE ----
+# # This is wind speed at 1m based on wind speed at 10m and reductions
+# wind$u.e <- wind$red_E * wind$u_kph; wind$v.e <- wind$red_E * wind$v_kph
+# wind$u.f <- wind$red_F * wind$u_kph; wind$v.f <- wind$red_F * wind$v_kph
+# wind$u.a <- wind$red_A * wind$u_kph; wind$v.a <- wind$red_A * wind$v_kph
+# wind$u.b <- wind$red_B * wind$u_kph; wind$v.b <- wind$red_B * wind$v_kph
+# # No WRF application
+# # wind$u_e <- wind$u; wind$v_e <- wind$v
+# # wind$u_f <- wind$u; wind$v_f <- wind$v
+# # wind$u_a <- wind$u; wind$v_a <- wind$v
+# # wind$u_b <- wind$u; wind$v_b <- wind$v
+# # ----
+# 
+# # CREATE NETCDF FILES ----
+# # Create grid dimensions
+# x    <- xFromCol(tmpG, 1 : ncol(tmpG))
+# y    <- yFromRow(tmpG, 1 : nrow(tmpG))
+# xDim <- ncdim_def(name = "ni", units = "m", longname = "meters_east", 
+#                   vals = as.double(as.array(x)))
+# yDim <- ncdim_def(name = "nj", units = "m", longname = "meters_north", 
+#                   vals = as.double(as.array(y))) 
+# east <- ncvar_def(name = 'east', units = 'm', dim = list(xDim), 
+#                   missval = -99, longname = 'Easting', prec = 'float')
+# nrth <- ncvar_def(name = 'nrth', units = 'm', dim = list(yDim), 
+#                   missval = -99, longname = 'Northing', prec = 'float')
+# 
+# # wrf: 1 = e; 2 = f; 3 = a; 4 = b 
+# veg_type_df <- data.frame(rasterToPoints(veg_type))
+# veg_type_df <- merge(veg_type_df, 
+#                      data.frame(veg_type = 1 : 4, col1 = grep('u\\.', names(wind))),
+#                      by.x = 'vegC_50m', by.y = 'veg_type', all = T)
+# a <- Sys.time()
+# for (month in model_months) {
+#   tmpW <- wind[which(month(wind$date) == month &
+#                        year(wind$date) == model_year), ]
+#   # Create raster objects 
+#   wind_rstr <- list(u = list(), v = list())
+#   for (t in 1 : length(tmpW$date)) {
+#     wnd1 <- data.frame(col1 = grep('u\\.', names(tmpW)),
+#                        u = unlist(tmpW[t, grep('u\\.', names(tmpW))]),
+#                        v = unlist(tmpW[t, grep('v\\.', names(tmpW))]))
+#     dfU <- merge(veg_type_df, wnd1[, c(1, 2)], 
+#                  by.x = 'col1', by.y = 'col1', all = T)
+#     dfV <- merge(veg_type_df, wnd1[, c(1, 3)], 
+#                  by.x = 'col1', by.y = 'col1', all = T)
+#     wind_rstr[['u']][[t]] <- rasterize(x = cbind(dfU$x, dfU$y), y = tmpG, 
+#                                        field = dfU$u, fun = mean, background = 0)
+#     wind_rstr[['v']][[t]] <- rasterize(x = cbind(dfV$x, dfV$y), y = tmpG, 
+#                                        field = dfV$v, fun = mean, background = 0)
+#     wind_rstr[['u']][[t]] <- mask(x = wind_rstr[['u']][[t]], mask = mask, 
+#                                   inverse = F)
+#     wind_rstr[['v']][[t]] <- mask(x = wind_rstr[['v']][[t]], mask = mask, 
+#                                   inverse = F)
+#   }
+#   # Save the rasters and modify these cause they take a long time to generate
+#   # on there own
+#   saveRDS(object = wind_rstr, 
+#           file = paste0(path, '002_TFV/in/wind_',  
+#                         ifelse(data[['month']]$numr[month] < 10, '0', ''), 
+#                         data[['month']]$numr[month], '_', data[['month']]$mnth[month], 
+#                         '.RData'))
+#   # Create NDCF
+#   ncFl <- paste0(path, '002_TFV/in/wind_',  
+#                  ifelse(data[['month']]$numr[month] < 10, '0', ''), 
+#                  data[['month']]$numr[month], '_', data[['month']]$mnth[month], 
+#                  '.nc')
+#   time <- as.numeric(tmpW$date - origin_TFV) * 24
+#   tDim <- ncdim_def(name = "time", units = 'hour', 
+#                     vals = as.double(as.array(time)),
+#                     longname = 'Time in decimal hours since 01/01/1990 00:00')
+#   wndU <- ncvar_def(name = 'u', units = 'm s^-1', dim = list(xDim, yDim, tDim),
+#                     missval = -9999, longname = 'Windspeed, E/W vector',
+#                     prec = 'float')
+#   wndV <- ncvar_def(name = 'v', units = 'm s^-1', dim = list(xDim, yDim, tDim),
+#                     missval = -9999, longname = 'Windspeed, N/S vector',
+#                     prec = 'float')
+#   ncout <- nc_create(ncFl, list(east, nrth, wndU, wndV), force_v4 = T)
+#   # put variables
+#   uArr <- array(NA, dim = c(dim(wind_rstr[['u']][[1]])[2 : 1], length(time)))
+#   vArr <- array(NA, dim = c(dim(wind_rstr[['v']][[1]])[2 : 1], length(time)))
+#   eArr <- array(xFromCol(wind_rstr[[1]][[1]], 1 : ncol(wind_rstr[[1]][[1]])), 
+#                 dim = c(dim(wind_rstr[['u']][[1]])[2]))
+#   nArr <- array(yFromRow(wind_rstr[[1]][[1]], 1 : nrow(wind_rstr[[1]][[1]])), 
+#                 dim = c(dim(wind_rstr[['u']][[1]])[1]))
+#   for (j in 1 : length(time)) {
+#     uArr[, , j] <- getValues(wind_rstr[['u']][[j]])
+#     vArr[, , j] <- getValues(wind_rstr[['v']][[j]])
+#   }
+#   ncvar_put(ncout, wndU, uArr)
+#   ncvar_put(ncout, wndV, vArr)
+#   ncvar_put(ncout, east, eArr)
+#   ncvar_put(ncout, nrth, nArr)
+#   # put additional attributes into dimension and data variables
+#   ncatt_put(ncout,"east","axis","X") #,verbose=FALSE) #,definemode=FALSE)
+#   ncatt_put(ncout,"nrth","axis","Y")
+#   ncatt_put(ncout,"time","axis","T")
+#   # add global attributes
+#   ncatt_put(ncout, 0, "title", 'MD-WERP, 9.2 Ecyhydrology Modelling')
+#   ncatt_put(ncout, 0, "institution", 'GRIFFITH UNIVERSITY')
+#   ncatt_put(ncout, 0, "contact", 'ryan.shojinaga@griffithuni.edu.au')
+#   ncatt_put(ncout, 0, "source", 'SYNTHETIC')
+#   # Close file
+#   nc_close(ncout)
+# }
+# b <- Sys.time()
+# b - a
+# # So this takes ~5 hours, too long, so just use the scalar adjustment in the 
+# # tuflow control file
+# 
+# 
+# # ----
+# 
