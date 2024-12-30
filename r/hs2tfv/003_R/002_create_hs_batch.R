@@ -1,0 +1,60 @@
+# MD-WERP 9.2 Water Quality Modelling; Tuflow FV WQ 
+# Ryan Shojinaga & David Hamilton, Australian Rivers Institute, Griffith Uni.
+# ryan.shojinaga@griffithuni.edu.au
+
+# Script to creates monthly Heatsource control files and batch run file
+
+suppressWarnings(suppressMessages(library(lubridate)))
+remove(list = ls()); cat("\014")
+# Path to model folder and source functions
+path         <- 'C:/001_MD_WERP/001_Culgoa/002_TFV/culgoa_545/'
+source(paste0(path, '/003_R/999_model_functions.R'))
+# Path format for control file (e.g., C:\\001_MD_WERP\\001_Culgoa\\003_HS)
+dir_control  <- c(input  = gsub('/', paste(rep('\\', 8), collapse = ''),
+                                paste0(path, '001_HS/in/')),
+                  output = gsub('/', paste(rep('\\', 8), collapse = ''), 
+                                paste0(path, '001_HS/out/')))
+# Path format for batch file (e.g., C:\001_MD_WERP\001_Culgoa\003_HS)
+dir_batch    <- c(cd1    = gsub('/', paste(rep('\\', 2), collapse = ''),
+                                paste0(path, '001_HS/out/')),
+                  cd2    = gsub('/', paste(rep('\\', 2), collapse = ''),
+                                paste0(path, '001_HS/')))
+# Read in the control file (i.e., model start and end dates)
+control_file <- readLines(paste0(path, 'culgoa_cf.mst'))
+# Read in HS control file template and replace input/output paths
+cf_template  <- readLines(paste0(path, "001_HS/cf/hs_cntrl_file_template.csv"))
+cf_template  <- gsub('XX_INPUT_DIR_XX', dir_control['input'], cf_template)
+cf_template  <- gsub('XX_OUTPUT_DIR_XX', dir_control['output'], cf_template)
+# Create the monthly control files (model is run in monthly batches)
+start_date   <- clean_input(control_file[grep('start_date', control_file)])
+end_date     <- clean_input(control_file[grep('end_date',   control_file)])
+str_month    <- month(start_date)
+end_month    <- month(end_date)
+for (month in str_month : end_month) {
+  first_date <- convert_2_date(year(start_date), month, 1) - years(2)
+  last_date  <- convert_2_date(year(start_date), month, 
+                               days_in_month(first_date)) - years(2)
+  first_date <- format(first_date, '%m/%d/%Y')
+  last_date  <- format(last_date,  '%m/%d/%Y')
+  hs_control <- gsub('XX_STRDATE_XX', first_date, cf_template)
+  hs_control <- gsub('XX_ENDDATE_XX',  last_date,  hs_control)
+  file_name  <- paste0('HS_cf_', ifelse(month < 10, '0', ''), month)
+  writeLines(con = paste0(path, '001_HS/cf/', file_name, '.csv'),
+             text = hs_control)
+  # Create the run_heatsource batchfile
+  batch_txt  <- c('del  HeatSource_Control.csv',
+                  paste0('copy   cf\\', file_name, '.csv ', 'HeatSource_Control.csv'),
+                  'C:\\ProgramData\\anaconda3\\python.exe HS9_Run_Solar_Only.py',
+                  paste0('cd ', dir_batch['cd1']),  
+                  paste0('rename ', 'Heat_SR1.csv Heat_SR1_', 
+                         ifelse(month < 10, '0', ''), month, '.csv'),
+                  paste0('rename ', 'Heat_SR4.csv Heat_SR4_', 
+                         ifelse(month < 10, '0', ''), month, '.csv'),
+                  paste0('cd ', dir_batch['cd2']))
+  if (month == str_month) {
+    batch_file <- append(paste0('cd ', dir_batch['cd2']), batch_txt)
+  } else {
+    batch_file <- append(batch_file, batch_txt)
+  }
+}
+writeLines(text = batch_file, con = paste0(path, '001_HS/run_heatsource.bat'))

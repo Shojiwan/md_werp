@@ -1,8 +1,8 @@
 remove(list = ls()); cat("\014")
 # Set absolute path to model folder
-# FOLDER PATH HERE (Remeber to replace '\' with '/')____________________________
+# FOLDER PATH HERE (Remember to replace '\' with '/')____________________________
 # path <- MODEL_RUN_FOLDER_PATH
-path <- 'C:/001_MD_WERP/001_Culgoa/002_TFV/culgoa_013_hcal'
+path <- 'C:/001_MD_WERP/001_Culgoa/002_TFV/culgoa_545'
 # E.g., path <- 'C:/001_MD_WERP/001_Culgoa/002_TFV/culgoa_013_hcal/'
 # Check path
 if (dir.exists(path)) {
